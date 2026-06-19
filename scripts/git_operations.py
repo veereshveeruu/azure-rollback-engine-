@@ -70,7 +70,10 @@ def create_rollback_branch(branch_name: str):
     run_cmd(["git", "pull"], cwd=LOCAL_REPO_PATH)
 
     run_cmd(["git", "checkout", "-b", branch_name], cwd=LOCAL_REPO_PATH)
-    
+
+    # DEBUG ONLY
+    run_cmd(["git", "config", "--list"], cwd=LOCAL_REPO_PATH)
+
 def configure_git_user():
     """
     Configure git user for GitHub Actions
@@ -179,15 +182,29 @@ def commit_revert_changes(message: str):
     status = run_cmd(["git", "status", "--porcelain"], cwd=LOCAL_REPO_PATH)
     logging.info(f"Git status before commit:\n{status}")
 
+    # Nothing changed
+    if not status.strip():
+        logging.warning("Nothing to commit after revert. Skipping commit step.")
+        return
+
+    # Stage changes
     run_cmd(["git", "add", "-A"], cwd=LOCAL_REPO_PATH)
 
     status_after_add = run_cmd(["git", "status", "--porcelain"], cwd=LOCAL_REPO_PATH)
     logging.info(f"Git status after add:\n{status_after_add}")
 
     if not status_after_add.strip():
-        logging.warning("Nothing to commit after revert. Skipping commit step.")
+        logging.warning("Nothing to commit after add. Skipping commit.")
         return
 
+    # ✅ Git identity (safe even if already set in GitHub Actions)
+    run_cmd(["git", "config", "user.email", "github-actions@github.com"], cwd=LOCAL_REPO_PATH)
+    run_cmd(["git", "config", "user.name", "github-actions[bot]"], cwd=LOCAL_REPO_PATH)
+
+    # ✅ ACTUAL COMMIT (missing in your code)
+    run_cmd(["git", "commit", "-m", message], cwd=LOCAL_REPO_PATH)
+
+    logging.info("Revert commit created successfully")
 
 # -----------------------------
 # STEP 8: PUSH BRANCH

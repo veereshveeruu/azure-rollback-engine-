@@ -18,6 +18,7 @@ from azure_client import get_pr_from_work_item
 from github_client import get_pr_commits
 from git_operations import (
     clone_repo,
+    configure_git_user,
     create_rollback_branch,
     revert_commits,
     commit_revert_changes,
@@ -89,6 +90,8 @@ def run_pipeline(work_item_id: str):
 
         clone_repo()
 
+        configure_git_user()
+
         # -------------------------
         # STEP 4: Clean Check
         # -------------------------
@@ -113,7 +116,7 @@ def run_pipeline(work_item_id: str):
         save_sha_snapshot("sha256-before.txt", sha_before)
 
         logging.info(f"SHA BEFORE: {sha_before}")
-
+        # Note: configure_git_user was already called earlier. Remove undefined calls.
         # -------------------------
         # STEP 7: REVERT COMMITS
         # -------------------------
