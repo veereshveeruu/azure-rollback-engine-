@@ -1,0 +1,41 @@
+name: Azure Rollback Engine
+
+on:
+  workflow_dispatch:
+    inputs:
+      work_item_id:
+        description: "Azure Work Item ID"
+        required: true
+        type: string
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run rollback engine
+        env:
+          WORK_ITEM_ID: ${{ inputs.work_item_id }}
+
+          AZURE_ORG: ${{ secrets.AZURE_ORG }}
+          AZURE_PROJECT: ${{ secrets.AZURE_PROJECT }}
+          AZURE_PAT: ${{ secrets.AZURE_PAT }}
+
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: ${{ secrets.GITHUB_OWNER }}
+          GITHUB_REPO: ${{ secrets.GITHUB_REPO }}
+
+        run: |
+          python scripts/main.py
