@@ -24,7 +24,11 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-
+      - name: Configure Git User
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "github-actions[bot]"
+          
       - name: Run rollback engine
         env:
           WORK_ITEM_ID: ${{ inputs.work_item_id }}
