@@ -176,13 +176,17 @@ def revert_commits(commits: List[Dict]):
 # STEP 7: FINAL COMMIT AFTER REVERT
 # -----------------------------
 def commit_revert_changes(message: str):
-    """
-    Commit all revert changes
-    """
+    status = run_cmd(["git", "status", "--porcelain"], cwd=LOCAL_REPO_PATH)
+    logging.info(f"Git status before commit:\n{status}")
 
-    run_cmd(["git", "add", "."], cwd=LOCAL_REPO_PATH)
+    run_cmd(["git", "add", "-A"], cwd=LOCAL_REPO_PATH)
 
-    run_cmd(["git", "commit", "-m", message], cwd=LOCAL_REPO_PATH)
+    status_after_add = run_cmd(["git", "status", "--porcelain"], cwd=LOCAL_REPO_PATH)
+    logging.info(f"Git status after add:\n{status_after_add}")
+
+    if not status_after_add.strip():
+        logging.warning("Nothing to commit after revert. Skipping commit step.")
+        return
 
 
 # -----------------------------
