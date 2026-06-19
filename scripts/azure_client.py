@@ -59,7 +59,7 @@ def get_work_item(work_item_id: str):
 # -----------------------------
 def extract_pr_links(work_item_json):
     """
-    Extract GitHub PR URLs from Azure relations
+    Extract GitHub Pull Requests from Azure Boards relations
     """
 
     relations = work_item_json.get("relations", [])
@@ -69,8 +69,7 @@ def extract_pr_links(work_item_json):
     for rel in relations:
         url = rel.get("url", "")
 
-        # GitHub PRs usually contain /pull/
-        if "github.com" in url and "/pull/" in url:
+        if "GitHub/PullRequest" in url:
             pr_links.append(url)
 
     return pr_links
@@ -81,17 +80,14 @@ def extract_pr_links(work_item_json):
 # -----------------------------
 def extract_pr_number(pr_url: str):
     """
-    Convert PR URL → PR number
+    Extract PR number from Azure GitHub artifact link
+
     Example:
-    https://github.com/org/repo/pull/123 → 123
+    vstfs:///GitHub/PullRequest/xxxx%2f2
+    -> 2
     """
 
-    try:
-        return pr_url.rstrip("/").split("/")[-1]
-    except Exception as e:
-        logging.error(f"Invalid PR URL: {pr_url}")
-        raise e
-
+    return pr_url.split("%2f")[-1]
 
 # -----------------------------
 # STEP 4: MAIN FUNCTION
@@ -120,9 +116,16 @@ def get_pr_from_work_item(work_item_id: str):
     pr_numbers = []
 
     for link in pr_links:
-        pr_numbers.append({
-            "url": link,
-            "pr_number": extract_pr_number(link)
-        })
+     pr_numbers.append({
+        "url": link,
+        "pr_number": extract_pr_number(link)
+    })
 
+    # Latest PR first
+    pr_numbers.sort(
+    key=lambda x: int(x["pr_number"]),
+    reverse=True
+)
+
+    logging.info(f"PRs Found: {pr_numbers}")
     return pr_numbers
