@@ -6,12 +6,10 @@ on:
       work_item_id:
         description: "Azure Work Item ID"
         required: true
-        type: string
 
 jobs:
   rollback:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,20 +20,16 @@ jobs:
           python-version: "3.10"
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Run rollback engine
         env:
           WORK_ITEM_ID: ${{ inputs.work_item_id }}
-
-          AZURE_ORG: ${{ secrets.AZURE_ORG }}
-          AZURE_PROJECT: ${{ secrets.AZURE_PROJECT }}
+          AZURE_ORG: ${{ vars.AZURE_ORG }}
+          AZURE_PROJECT: ${{ vars.AZURE_PROJECT }}
+          DEFAULT_BRANCH: ${{ vars.DEFAULT_BRANCH }}
+          GITHUB_OWNER: ${{ vars.REPO_OWNER }}
+          GITHUB_REPO: ${{ vars.REPO_NAME }}
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
           AZURE_PAT: ${{ secrets.AZURE_PAT }}
-
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_OWNER: ${{ secrets.GITHUB_OWNER }}
-          GITHUB_REPO: ${{ secrets.GITHUB_REPO }}
-
-        run: |
-          python scripts/main.py
+        run: python scripts/main.py
