@@ -70,7 +70,27 @@ def create_rollback_branch(branch_name: str):
     run_cmd(["git", "pull"], cwd=LOCAL_REPO_PATH)
 
     run_cmd(["git", "checkout", "-b", branch_name], cwd=LOCAL_REPO_PATH)
+    
+def configure_git_user():
+    """
+    Configure git user for GitHub Actions
+    """
 
+    run_cmd([
+        "git",
+        "config",
+        "--global",
+        "user.email",
+        "github-actions@github.com"
+    ])
+
+    run_cmd([
+        "git",
+        "config",
+        "--global",
+        "user.name",
+        "github-actions[bot]"
+    ])
 
 # -----------------------------
 # STEP 3: CHECKOUT BRANCH (if needed)
