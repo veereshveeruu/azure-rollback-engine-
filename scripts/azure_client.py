@@ -96,6 +96,9 @@ def extract_pr_number(pr_url: str):
 # -----------------------------
 # STEP 4: MAIN FUNCTION
 # -----------------------------
+# -----------------------------
+# STEP 4: MAIN FUNCTION
+# -----------------------------
 def get_pr_from_work_item(work_item_id: str):
     """
     END-TO-END:
@@ -103,6 +106,10 @@ def get_pr_from_work_item(work_item_id: str):
     """
 
     work_item = get_work_item(work_item_id)
+
+    print("===== RELATIONS =====")
+    print(json.dumps(work_item.get("relations", []), indent=2))
+    print("=====================")
 
     pr_links = extract_pr_links(work_item)
 
