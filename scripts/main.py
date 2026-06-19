@@ -84,6 +84,9 @@ def run_pipeline(work_item_id: str):
         # -------------------------
         logging.info("Cloning repository...")
 
+        logging.info(f"GIT_REPO_URL = {os.getenv('GIT_REPO_URL')}")
+        logging.info(f"LOCAL_REPO_PATH = {LOCAL_REPO_PATH}")
+
         clone_repo()
 
         # -------------------------
@@ -168,7 +171,7 @@ def run_pipeline(work_item_id: str):
         }
 
     except Exception as e:
-        logging.error(f"PIPELINE FAILED: {str(e)}")
+        logging.exception("PIPELINE FAILED")
 
         return {
             "status": "FAILED",
