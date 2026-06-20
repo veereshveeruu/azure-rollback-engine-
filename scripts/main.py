@@ -25,7 +25,8 @@ from git_operations import (
     ensure_clean_state,
     LOCAL_REPO_PATH,
     configure_remote_auth,
-    reset_to_main
+    reset_to_main,
+    run_cmd
 )
 from sha_validator import (
     generate_repo_sha256,
@@ -89,7 +90,11 @@ def run_pipeline(work_item_id: str):
         sha_before = generate_repo_sha256(str(LOCAL_REPO_PATH))
         save_sha_snapshot("sha256-before.txt", sha_before)
 
-        logging.info(f"SHA BEFORE: {sha_before}")
+      # STEP 5A: Capture files before rollback
+        before_files = run_cmd(
+        ["git", "diff", "--name-only"],
+        cwd=LOCAL_REPO_PATH
+        )
 
        # STEP 6: REVERT COMMIT
         revert_commits(commits)
@@ -100,7 +105,7 @@ def run_pipeline(work_item_id: str):
         )
 
         # STEP 8: SHA AFTER
-        sha_after = generate_repo_sha256(str(LOCAL_REPO_PATH))
+        sha_after = generate_repo_sha256(LOCAL_REPO_PATH)
         save_sha_snapshot("sha256-after.txt", sha_after)
 
         logging.info(f"SHA AFTER: {sha_after}")
