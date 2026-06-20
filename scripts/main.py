@@ -78,25 +78,29 @@ def run_pipeline(work_item_id: str):
         reset_to_main()
         ensure_clean_state()
 
-        # STEP 4: Create Rollback Branch
-        branch_name = create_rollback_branch(work_item_id)
-        
-        # STEP 5: SHA BEFORE
-        sha_before = generate_repo_sha256(LOCAL_REPO_PATH)
+       # STEP 4: Create Rollback Branch
+        branch_name = f"rollback/story-{work_item_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        create_rollback_branch(branch_name)
+
+        logging.info(f"DEBUG LOCAL_REPO_PATH = {LOCAL_REPO_PATH}")
+        logging.info(f"DEBUG repo exists = {os.path.exists(LOCAL_REPO_PATH)}")
+
+       # STEP 5: SHA BEFORE
+        sha_before = generate_repo_sha256(str(LOCAL_REPO_PATH))
         save_sha_snapshot("sha256-before.txt", sha_before)
 
         logging.info(f"SHA BEFORE: {sha_before}")
 
-        # STEP 6: REVERT COMMITS
+       # STEP 6: REVERT COMMIT
         revert_commits(commits)
-
-        # STEP 7: COMMIT CHANGES
+ 
+       # STEP 7: COMMIT CHANGES
         commit_revert_changes(
             message=f"Rollback WorkItem {work_item_id}"
         )
 
         # STEP 8: SHA AFTER
-        sha_after = generate_repo_sha256(LOCAL_REPO_PATH)
+        sha_after = generate_repo_sha256(str(LOCAL_REPO_PATH))
         save_sha_snapshot("sha256-after.txt", sha_after)
 
         logging.info(f"SHA AFTER: {sha_after}")
