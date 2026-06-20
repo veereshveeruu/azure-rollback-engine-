@@ -209,9 +209,21 @@ def commit_revert_changes(message: str):
 
 # -----------------------------
 # STEP 10: PUSH BRANCH
-# -----------------------------
+#------------------------------
 def push_branch(branch_name: str):
+    """
+    Push rollback branch to remote
+    """
+
     logging.info(f"Pushing branch: {branch_name}")
+
+    # DEBUG
+    remote_url = run_cmd(
+        ["git", "remote", "get-url", "origin"],
+        cwd=LOCAL_REPO_PATH
+    )
+
+    logging.info(f"Origin URL = {remote_url}")
 
     run_cmd([
         "git",
