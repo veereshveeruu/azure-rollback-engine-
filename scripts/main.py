@@ -2,18 +2,17 @@ import os
 import logging
 from datetime import datetime
 from logger import setup_logger
+from utils.audit_report import AuditReport
 import sys
-
+import json
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.env_loader import load_env
-
 load_env()
 
 logger = setup_logger("rollback-engine")
 
-# Import your modules
 from azure_client import get_pr_from_work_item
 from github_client import get_pr_commits
 from git_operations import (
@@ -45,7 +44,6 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-
 # -----------------------------
 # MAIN PIPELINE
 # -----------------------------
@@ -54,25 +52,16 @@ def run_pipeline(work_item_id: str):
         logging.info("========== PIPELINE STARTED ==========")
         logging.info(f"Work Item ID: {work_item_id}")
 
-        # -------------------------
         # STEP 1: Azure → PR
-        # -------------------------
-        logging.info("Fetching PR from Azure...")
-
         pr_data = get_pr_from_work_item(work_item_id)
 
         if not pr_data:
             raise Exception("No PR linked to Azure Work Item")
 
         pr_number = pr_data[0]["pr_number"]
-
         logging.info(f"PR Found: {pr_number}")
 
-        # -------------------------
         # STEP 2: PR → Commits
-        # -------------------------
-        logging.info("Fetching commits from GitHub...")
-
         commits = get_pr_commits(pr_number)
 
         if not commits:
@@ -80,73 +69,38 @@ def run_pipeline(work_item_id: str):
 
         logging.info(f"Total commits: {len(commits)}")
 
-        # -------------------------
         # STEP 3: Clone Repo
-        # -------------------------
-        logging.info("Cloning repository...")
-
-        logging.info(f"GIT_REPO_URL = {os.getenv('GIT_REPO_URL')}")
-        logging.info(f"LOCAL_REPO_PATH = {LOCAL_REPO_PATH}")
-
         clone_repo()
-
         configure_git_user()
-
-        # -------------------------
-        # STEP 4: Clean Check
-        # -------------------------
         ensure_clean_state()
 
-        # -------------------------
-        # STEP 5: Create Rollback Branch
-        # -------------------------
+        # STEP 4: Create Rollback Branch
         branch_name = f"rollback/story-{work_item_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-
         create_rollback_branch(branch_name)
 
         logging.info(f"Rollback branch created: {branch_name}")
 
-        # -------------------------
-        # STEP 6: SHA BEFORE
-        # -------------------------
-        logging.info("Generating SHA BEFORE snapshot...")
-
+        # STEP 5: SHA BEFORE
         sha_before = generate_repo_sha256(LOCAL_REPO_PATH)
-
         save_sha_snapshot("sha256-before.txt", sha_before)
 
         logging.info(f"SHA BEFORE: {sha_before}")
-        # Note: configure_git_user was already called earlier. Remove undefined calls.
-        # -------------------------
-        # STEP 7: REVERT COMMITS
-        # -------------------------
-        logging.info("Starting commit revert process...")
 
+        # STEP 6: REVERT COMMITS
         revert_commits(commits)
 
-        # -------------------------
-        # STEP 8: COMMIT CHANGES
-        # -------------------------
+        # STEP 7: COMMIT CHANGES
         commit_revert_changes(
-            message=f"Rollback for WorkItem {work_item_id}"
+            message=f"Rollback WorkItem {work_item_id}"
         )
 
-        # -------------------------
-        # STEP 9: SHA AFTER
-        # -------------------------
-        logging.info("Generating SHA AFTER snapshot...")
-
+        # STEP 8: SHA AFTER
         sha_after = generate_repo_sha256(LOCAL_REPO_PATH)
-
         save_sha_snapshot("sha256-after.txt", sha_after)
 
         logging.info(f"SHA AFTER: {sha_after}")
 
-        # -------------------------
-        # STEP 10: VALIDATION
-        # -------------------------
-        logging.info("Validating rollback integrity...")
-
+        # STEP 9: VALIDATION
         if compare_sha(sha_before, sha_after):
             logging.info("ROLLBACK SUCCESS - SHA MATCHED")
             status = "SUCCESS"
@@ -154,11 +108,7 @@ def run_pipeline(work_item_id: str):
             logging.error("ROLLBACK FAILED - SHA MISMATCH")
             status = "FAILED"
 
-        # -------------------------
-        # STEP 11: PUSH BRANCH
-        # -------------------------
-        logging.info("Pushing rollback branch...")
-
+        # STEP 10: PUSH BRANCH
         push_branch(branch_name)
 
         logging.info("========== PIPELINE COMPLETED ==========")
@@ -178,23 +128,64 @@ def run_pipeline(work_item_id: str):
 
         return {
             "status": "FAILED",
+            "work_item": work_item_id,
             "error": str(e),
             "log_file": LOG_FILE
         }
 
 
 # -----------------------------
-# ENTRY POINT
+# ENTRY POINT (MULTI WORK ITEM)
 # -----------------------------
 if __name__ == "__main__":
 
-    work_item_id = os.getenv("WORK_ITEM_ID")
+    work_item_ids = os.getenv("WORK_ITEM_IDS")
 
-    if not work_item_id:
-        print("ERROR: WORK_ITEM_ID not provided")
+    if not work_item_ids:
+        print("ERROR: WORK_ITEM_IDS not provided (example: 8,12,15)")
         exit(1)
 
-    result = run_pipeline(work_item_id)
+    work_item_ids = [item.strip() for item in work_item_ids.split(",")]
 
-    print("\n========== RESULT ==========")
-    print(result)
+    # ✅ INIT AUDIT ONCE
+    audit = AuditReport()
+
+    all_results = []
+
+    for work_item_id in work_item_ids:
+        logging.info(f"\n\n========== STARTING WORK ITEM {work_item_id} ==========\n")
+
+        try:
+            result = run_pipeline(work_item_id)
+
+            # ✅ ADD TO AUDIT
+            audit.add_result(result)
+
+            all_results.append(result)
+
+        except Exception as e:
+            logging.exception(f"Work item {work_item_id} failed")
+
+            failed_result = {
+                "work_item": work_item_id,
+                "status": "FAILED",
+                "error": str(e)
+            }
+
+            audit.add_result(failed_result)
+            all_results.append(failed_result)
+
+        logging.info(f"========== COMPLETED WORK ITEM {work_item_id} ==========\n")
+
+    # -----------------------------
+    # FINAL AUDIT REPORT
+    # -----------------------------
+    audit_file, report = audit.finalize()
+
+    print("\n========== FINAL RESULTS ==========")
+    for r in all_results:
+        print(r)
+
+    print("\n========== AUDIT REPORT GENERATED ==========")
+    print(f"File: {audit_file}")
+    print(json.dumps(report, indent=2))
