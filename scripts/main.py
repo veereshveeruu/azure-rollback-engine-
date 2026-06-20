@@ -90,35 +90,40 @@ def run_pipeline(work_item_id: str):
         sha_before = generate_repo_sha256(str(LOCAL_REPO_PATH))
         save_sha_snapshot("sha256-before.txt", sha_before)
 
-      # STEP 5A: Capture files before rollback
+
+        # STEP 5A: Capture files before rollback
         before_files = run_cmd(
-        ["git", "diff", "--name-only"],
-        cwd=LOCAL_REPO_PATH
+            ["git", "diff", "--name-only"],
+            cwd=LOCAL_REPO_PATH
         )
 
-       # STEP 6: REVERT COMMIT
-        reverted_commit_count = revert_commits(commits)
-        total_commit_count = len(commits)
+        # STEP 6: Revert Commits
+        # Use the revert_commits implementation from git_operations
+        reverted_count = 0
+        try:
+            reverted_count = revert_commits(commits)
+        except Exception as e:
+            logging.error(f"Error while reverting commits: {e}")
 
-        if reverted_commit_count is None:
-            reverted_commit_count = total_commit_count
- 
-       # STEP 7: COMMIT CHANGES
-        commit_revert_changes(
-            message=f"Rollback WorkItem {work_item_id}"
+        # STEP 7: COMMIT CHANGES
+        try:
+         commit_revert_changes(
+        f"Rollback for Work Item {work_item_id}"
         )
+        except Exception as e:
+            logging.error(f"Error committing revert changes: {e}")
 
-        # STEP 8: SHA AFTER
-        sha_after = generate_repo_sha256(LOCAL_REPO_PATH)
+        # STEP 8: SHA GENERATION
+        sha_after = generate_repo_sha256(str(LOCAL_REPO_PATH))
         save_sha_snapshot("sha256-after.txt", sha_after)
 
-        logging.info(f"SHA AFTER: {sha_after}")
-
         # STEP 9: VALIDATION
-        baseline_sha = sha_before
-        if baseline_sha == sha_after:
+        total_commit_count = len(commits)
+        if reverted_count == total_commit_count:
+            logging.info("ROLLBACK SUCCESS - ALL COMMITS REVERTED")
             status = "SUCCESS"
         else:
+            logging.error("ROLLBACK FAILED")
             status = "FAILED"
 
         # STEP 10: PUSH BRANCH
