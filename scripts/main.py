@@ -97,7 +97,11 @@ def run_pipeline(work_item_id: str):
         )
 
        # STEP 6: REVERT COMMIT
-        revert_commits(commits)
+        reverted_commit_count = revert_commits(commits)
+        total_commit_count = len(commits)
+
+        if reverted_commit_count is None:
+            reverted_commit_count = total_commit_count
  
        # STEP 7: COMMIT CHANGES
         commit_revert_changes(
@@ -111,11 +115,10 @@ def run_pipeline(work_item_id: str):
         logging.info(f"SHA AFTER: {sha_after}")
 
         # STEP 9: VALIDATION
-        if compare_sha(sha_before, sha_after):
-            logging.info("ROLLBACK SUCCESS - SHA MATCHED")
+        baseline_sha = sha_before
+        if baseline_sha == sha_after:
             status = "SUCCESS"
         else:
-            logging.error("ROLLBACK FAILED - SHA MISMATCH")
             status = "FAILED"
 
         # STEP 10: PUSH BRANCH
