@@ -127,26 +127,35 @@ def ensure_clean_state():
 # -----------------------------
 def revert_commit(commit_sha: str):
     """
-    Revert a single commit safely
+    Revert a single commit safely with strong merge conflict handling
     """
 
     logging.info(f"Reverting commit: {commit_sha}")
 
     try:
-        # Perform revert without auto commit first (safe check)
-        run_cmd(["git", "revert", "--no-edit", commit_sha], cwd=LOCAL_REPO_PATH)
+        run_cmd(
+            ["git", "revert", "--no-edit", commit_sha],
+            cwd=LOCAL_REPO_PATH
+        )
 
-    except Exception as e:
-        logging.error(f"Revert failed for {commit_sha}")
+        # Reliable conflict detection (git state based)
+        status = run_cmd(["git", "status", "--porcelain"], cwd=LOCAL_REPO_PATH)
 
-        # Check conflict state
-        status = run_cmd(["git", "status"], cwd=LOCAL_REPO_PATH)
+        if (
+            "UU" in status
+            or "AA" in status
+            or "DD" in status
+            or "conflict" in status.lower()
+        ):
+            logging.error(f"Merge conflict detected in commit {commit_sha}")
 
-        if "unmerged" in status or "conflict" in status.lower():
+            run_cmd(["git", "revert", "--abort"], cwd=LOCAL_REPO_PATH)
+
             raise Exception(f"MERGE CONFLICT detected in commit {commit_sha}")
 
+    except Exception as e:
+        logging.exception(f"Revert failed for commit {commit_sha}")
         raise e
-
 
 # -----------------------------
 # STEP 6: REVERT ENGINE (CORE LOGIC)
@@ -197,14 +206,19 @@ def commit_revert_changes(message: str):
         logging.warning("Nothing to commit after add. Skipping commit.")
         return
 
-    # ✅ Git identity (safe even if already set in GitHub Actions)
+    # Git identity
     run_cmd(["git", "config", "user.email", "github-actions@github.com"], cwd=LOCAL_REPO_PATH)
     run_cmd(["git", "config", "user.name", "github-actions[bot]"], cwd=LOCAL_REPO_PATH)
 
-    # ✅ ACTUAL COMMIT (missing in your code)
-    run_cmd(["git", "commit", "-m", message], cwd=LOCAL_REPO_PATH)
+    # ✅ FINAL COMMIT WITH CI SKIP
+    commit_message = f"{message} [skip ci]"
 
-    logging.info("Revert commit created successfully")
+    run_cmd(
+        ["git", "commit", "-m", commit_message],
+        cwd=LOCAL_REPO_PATH
+    )
+
+    logging.info("Revert commit created successfully with [skip ci]")
 
 # -----------------------------
 # STEP 8: PUSH BRANCH
