@@ -176,15 +176,20 @@ def revert_commits(commits: List[Dict]):
 
     ordered = sorted(commits, key=lambda x: x["date"], reverse=True)
 
+    reverted_count = 0
+
     for commit in ordered:
         sha = commit["sha"]
 
         try:
             revert_commit(sha)
+            reverted_count += 1
 
         except Exception as e:
             logging.error(f"Rollback stopped at {sha}")
             raise Exception(f"Rollback failed at {sha}")
+
+    return reverted_count
 
 
 # -----------------------------
