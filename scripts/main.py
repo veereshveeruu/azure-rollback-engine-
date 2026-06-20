@@ -24,7 +24,8 @@ from git_operations import (
     push_branch,
     ensure_clean_state,
     LOCAL_REPO_PATH,
-    configure_remote_auth
+    configure_remote_auth,
+    reset_to_main
 )
 from sha_validator import (
     generate_repo_sha256,
@@ -74,14 +75,12 @@ def run_pipeline(work_item_id: str):
         clone_repo()
         configure_git_user()
         configure_remote_auth()
+        reset_to_main()
         ensure_clean_state()
 
         # STEP 4: Create Rollback Branch
-        branch_name = f"rollback/story-{work_item_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        create_rollback_branch(branch_name)
-
-        logging.info(f"Rollback branch created: {branch_name}")
-
+        branch_name = create_rollback_branch(work_item_id)
+        
         # STEP 5: SHA BEFORE
         sha_before = generate_repo_sha256(LOCAL_REPO_PATH)
         save_sha_snapshot("sha256-before.txt", sha_before)

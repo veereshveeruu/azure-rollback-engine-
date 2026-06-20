@@ -57,7 +57,18 @@ def clone_repo():
         LOCAL_REPO_PATH
     ])
 
+def configure_remote_auth():
+    if not GITHUB_TOKEN:
+        raise Exception("GITHUB_TOKEN not found")
 
+    authenticated_url = GIT_REPO_URL
+
+    run_cmd(
+        ["git", "remote", "set-url", "origin", authenticated_url],
+        cwd=LOCAL_REPO_PATH
+    )
+
+    logging.info("Updated origin remote with authenticated URL")
 # -----------------------------
 # STEP 2: CONFIGURE GIT USER
 # -----------------------------
