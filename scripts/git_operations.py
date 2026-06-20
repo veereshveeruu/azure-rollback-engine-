@@ -10,6 +10,11 @@ GIT_REPO_URL = os.getenv("GIT_REPO_URL")  # https://github.com/org/repo.git
 LOCAL_REPO_PATH = os.getenv("LOCAL_REPO_PATH", "/tmp/repo")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
+if not GIT_REPO_URL:
+     raise Exception("GIT_REPO_URL is None")
+
+if not LOCAL_REPO_PATH:
+    raise Exception("LOCAL_REPO_PATH missing")
 # -----------------------------
 # AUTH FIX (IMPORTANT)
 # -----------------------------
