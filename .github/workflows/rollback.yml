@@ -26,6 +26,12 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+
+      - name: Run pipeline
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python scripts/main.py
+        
       - name: Configure Git User
         run: |
           git config --global user.email "github-actions@github.com"
