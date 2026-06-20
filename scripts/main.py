@@ -23,7 +23,8 @@ from git_operations import (
     commit_revert_changes,
     push_branch,
     ensure_clean_state,
-    LOCAL_REPO_PATH
+    LOCAL_REPO_PATH,
+    configure_remote_auth
 )
 from sha_validator import (
     generate_repo_sha256,
@@ -72,6 +73,7 @@ def run_pipeline(work_item_id: str):
         # STEP 3: Clone Repo
         clone_repo()
         configure_git_user()
+        configure_remote_auth()
         ensure_clean_state()
 
         # STEP 4: Create Rollback Branch
