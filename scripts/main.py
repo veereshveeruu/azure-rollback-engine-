@@ -71,13 +71,6 @@ def run_pipeline(work_item_id: str):
             raise Exception("No commits found in PR")
 
         logging.info(f"Total commits: {len(commits)}")
-        
-        logging.info("========== COMMITS FOUND ==========")
-
-        for commit in commits:
-         logging.info(commit)
-
-        logging.info("===================================")
 
         # STEP 3: Clone Repo
         clone_repo()
