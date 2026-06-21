@@ -145,7 +145,7 @@ def revert_commit(commit_sha: str):
 
     try:
         run_cmd(
-           ["git", "revert", "-m", "1", "--no-edit", commit_sha],
+            ["git", "revert", "--no-edit", commit_sha],
             cwd=LOCAL_REPO_PATH
         )
 
