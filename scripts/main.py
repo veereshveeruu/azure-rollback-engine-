@@ -123,6 +123,15 @@ def run_pipeline(work_item_id: str):
         # STEP 8: SHA GENERATION
         sha_after = generate_repo_sha256(str(LOCAL_REPO_PATH))
         save_sha_snapshot("sha256-after.txt", sha_after)
+        # STEP 8A: SHA VALIDATION
+        sha_match = compare_sha(
+        sha_before,
+        sha_after
+)
+
+        logging.info(f"SHA BEFORE: {sha_before}")
+        logging.info(f"SHA AFTER : {sha_after}")
+        logging.info(f"SHA MATCH : {sha_match}")
 
         # STEP 9: VALIDATION
         total_commit_count = len(commits)
