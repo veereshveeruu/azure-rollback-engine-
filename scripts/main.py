@@ -6,7 +6,24 @@ from utils.audit_report import AuditReport
 import sys
 import json
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+sys.path.append(
+    os.path.dirname(
+        os.path.dirname(
+            os.path.abspath(__file__)
+        )
+    )
+)
+
+import logging
+import json
+from datetime import datetime
+
+from logger import setup_logger
+from utils.audit_report import AuditReport
+from utils.env_loader import load_env
+
+load_env()
 
 from utils.env_loader import load_env
 load_env()
