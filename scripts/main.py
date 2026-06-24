@@ -124,7 +124,7 @@ def run_pipeline(work_item_id: str):
         # STEP 7: COMMIT CHANGES
         try:
          commit_revert_changes(
-        f"Rollback for Work Item {work_item_id}"
+            f"Rollback for Work Item {work_item_id}"
         )
         except Exception as e:
             logging.error(f"Error committing revert changes: {e}")
@@ -191,6 +191,9 @@ if __name__ == "__main__":
         logging.info(f"WORK ITEM ID : {work_item_id}")
         logging.info("STATUS       : STARTED")
         logging.info("=" * 80)
+        logging.info(f"Executed By: {os.getenv('USERNAME') or os.getenv('USER')}")
+        import platform
+        logging.info(f"Machine: {platform.node()}")
 
         try:
             result = run_pipeline(work_item_id)
