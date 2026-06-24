@@ -37,13 +37,19 @@ def run_cmd(cmd: List[str], cwd: str = None):
             check=True
         )
 
-        logging.info(result.stdout)
-        return result.stdout
+        output = result.stdout.strip()
+
+        if output:
+            logging.info(output)
+
+        return output
 
     except subprocess.CalledProcessError as e:
-        logging.error(e.stderr)
-        raise Exception(f"Command failed: {' '.join(cmd)}\n{e.stderr}")
-
+       if e.stderr:
+        logging.error(e.stderr.strip())
+       raise Exception(
+            f"Command failed: {' '.join(cmd)}\n{e.stderr}"
+        )
 
 # -----------------------------
 # STEP 1: CLONE REPO
@@ -122,10 +128,13 @@ def create_rollback_branch(branch_name: str):
 # STEP 5: CHECK CLEAN STATE
 # -----------------------------
 def ensure_clean_state():
-    status = run_cmd(["git", "status", "--porcelain"], cwd=LOCAL_REPO_PATH)
+    status = run_cmd(
+    ["git", "status", "--porcelain"],
+    cwd=LOCAL_REPO_PATH
+) or ""
 
     if status.strip():
-        raise Exception("Working directory is not clean. Abort rollback.")
+     raise Exception("Working directory is not clean. Abort rollback.")
 
 
 # -----------------------------
@@ -145,11 +154,14 @@ def revert_commit(commit_sha: str):
 
     try:
         run_cmd(
-           ["git", "revert", "-m", "1", "--no-edit", commit_sha],
+            ["git", "revert", "-m", "1", "--no-edit", commit_sha],
             cwd=LOCAL_REPO_PATH
         )
 
-        status = run_cmd(["git", "status", "--porcelain"], cwd=LOCAL_REPO_PATH)
+        status = run_cmd(
+            ["git", "status", "--porcelain"],
+            cwd=LOCAL_REPO_PATH
+        ) or ""
 
         if (
             "UU" in status
@@ -163,9 +175,9 @@ def revert_commit(commit_sha: str):
 
             raise Exception(f"MERGE CONFLICT in {commit_sha}")
 
-    except Exception as e:
+    except Exception:
         logging.exception(f"Revert failed: {commit_sha}")
-        raise e
+        raise
 
 
 # -----------------------------
@@ -196,7 +208,10 @@ def revert_commits(commits: List[Dict]):
 # STEP 9: COMMIT CHANGES (WITH CI SKIP)
 # -----------------------------
 def commit_revert_changes(message: str):
-    status = run_cmd(["git", "status", "--porcelain"], cwd=LOCAL_REPO_PATH)
+    status = run_cmd(
+        ["git", "status", "--porcelain"],
+        cwd=LOCAL_REPO_PATH
+    ) or ""
 
     if not status.strip():
         logging.warning("Nothing to commit after revert.")
@@ -239,12 +254,7 @@ def push_branch(branch_name: str):
     logging.info(f"Pushing branch: {branch_name}")
 
     # DEBUG
-    remote_url = run_cmd(
-        ["git", "remote", "get-url", "origin"],
-        cwd=LOCAL_REPO_PATH
-    )
-
-    logging.info(f"Origin URL = {remote_url}")
+    logging.info("Verified origin remote configuration")
 
     run_cmd([
         "git",
