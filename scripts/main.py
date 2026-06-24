@@ -187,7 +187,10 @@ if __name__ == "__main__":
     all_results = []
 
     for work_item_id in work_item_ids:
-        logging.info(f"\n\n========== STARTING WORK ITEM {work_item_id} ==========\n")
+        logging.info("=" * 80)
+        logging.info(f"WORK ITEM ID : {work_item_id}")
+        logging.info("STATUS       : STARTED")
+        logging.info("=" * 80)
 
         try:
             result = run_pipeline(work_item_id)
@@ -209,7 +212,10 @@ if __name__ == "__main__":
             audit.add_result(failed_result)
             all_results.append(failed_result)
 
-        logging.info(f"========== COMPLETED WORK ITEM {work_item_id} ==========\n")
+        logging.info("=" * 80)
+        logging.info(f"WORK ITEM ID : {work_item_id}")
+        logging.info("STATUS       : COMPLETED")
+        logging.info("=" * 80)
 
     # -----------------------------
     # FINAL AUDIT REPORT
