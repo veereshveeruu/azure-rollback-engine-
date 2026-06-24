@@ -1,14 +1,23 @@
 import os
+import sys
+
+sys.path.insert(
+    0,
+    os.path.dirname(
+        os.path.dirname(
+            os.path.abspath(__file__)
+        )
+    )
+)
+
 import logging
+import json
 from datetime import datetime
+
 from logger import setup_logger
 from utils.audit_report import AuditReport
-import sys
-import json
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from utils.env_loader import load_env
+
 load_env()
 
 logger = setup_logger("rollback-engine")
