@@ -11,10 +11,7 @@ from urllib.error import HTTPError, URLError
 AZURE_ORG = os.getenv("AZURE_ORG")
 AZURE_PROJECT = os.getenv("AZURE_PROJECT")
 AZURE_PAT = os.getenv("AZURE_PAT")
-print("AZURE_ORG:", AZURE_ORG)
-print("AZURE_PROJECT:", AZURE_PROJECT)
-print("AZURE_PAT exists:", bool(AZURE_PAT))
-print("AZURE_PAT length:", len(AZURE_PAT) if AZURE_PAT else 0)
+
 
 BASE_URL = f"{AZURE_ORG}/{AZURE_PROJECT}/_apis/wit/workitems"
 
