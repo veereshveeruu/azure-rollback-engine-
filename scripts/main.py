@@ -65,11 +65,10 @@ def run_pipeline(work_item_id: str):
     try:
          # STEP 1: Azure → PR
         pr_data = get_pr_from_work_item(work_item_id)
-
-        if not pr_data:
-            raise Exception("No PR linked to Azure Work Item")
-
-        pr_number = pr_data[0]["pr_number"]
+        pr_list = pr_data["prs"]
+        if not pr_list:
+         raise Exception("No PR linked to Azure Work Item")
+        pr_number = pr_list[0]["pr_number"]
         logging.info(f"PR Found: {pr_number}")
 
         # STEP 2: PR → Commits
@@ -94,9 +93,12 @@ def run_pipeline(work_item_id: str):
         ensure_clean_state()
 
         # STEP 4: Create Rollback Branch
-        release_id = os.getenv("RELEASE_ID")
+        release_id = pr_data.get("release_id")
+
         if not release_id:
-            raise Exception("RELEASE_ID not provided")
+           release_id = os.getenv("RELEASE_ID")
+        if not release_id:
+           release_id = "DEFAULT_RELEASE"
 
         branch_name = f"rollback/release-{release_id}-story-{work_item_id}"
         create_rollback_branch(branch_name)
@@ -106,6 +108,7 @@ def run_pipeline(work_item_id: str):
 
         # STEP 5: SHA BEFORE
         sha_before = generate_repo_sha256(str(LOCAL_REPO_PATH))
+        logging.info(f"Repository SHA BEFORE rollback: {sha_before}")
         save_sha_snapshot("sha256-before.txt", sha_before)
 
 
@@ -133,6 +136,7 @@ def run_pipeline(work_item_id: str):
 
         # STEP 8: SHA GENERATION
         sha_after = generate_repo_sha256(str(LOCAL_REPO_PATH))
+        logging.info(f"Repository SHA AFTER rollback: {sha_after}")
         save_sha_snapshot("sha256-after.txt", sha_after)
 
         # STEP 9: VALIDATION
