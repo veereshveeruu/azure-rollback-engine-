@@ -14,25 +14,31 @@ LOCAL_REPO_PATH = os.getenv("LOCAL_REPO_PATH", "/tmp/repo")
 # SAFE SHELL EXECUTOR
 # -----------------------------
 def run_cmd(cmd: List[str], cwd: str = None):
-    """
-    Executes shell commands safely and logs output
-    """
-    try:
-        result = subprocess.run(
-            cmd,
-            cwd=cwd,
-            text=True,
-            capture_output=True,
-            check=True
+    logging.info(f"Running: {' '.join(cmd)}")
+
+    result = subprocess.run(
+        cmd,
+        cwd=cwd,
+        text=True,
+        capture_output=True
+    )
+
+    logging.info(f"Return Code: {result.returncode}")
+
+    if result.stdout:
+        logging.info(f"STDOUT:\n{result.stdout}")
+
+    if result.stderr:
+        logging.info(f"STDERR:\n{result.stderr}")
+
+    if result.returncode != 0:
+        raise Exception(
+            f"Command failed: {' '.join(cmd)}\n"
+            f"STDOUT:\n{result.stdout}\n"
+            f"STDERR:\n{result.stderr}"
         )
 
-        logging.info(result.stdout)
-        return result.stdout
-
-    except subprocess.CalledProcessError as e:
-        logging.error(e.stderr)
-        raise Exception(f"Command failed: {' '.join(cmd)}\n{e.stderr}")
-
+    return result.stdout
 
 # -----------------------------
 # STEP 1: CLONE REPO
@@ -111,7 +117,7 @@ def revert_commit(commit_sha: str):
 
     try:
         # Perform revert without auto commit first (safe check)
-        run_cmd(["git", "revert", "--no-edit", commit_sha], cwd=LOCAL_REPO_PATH)
+        run_cmd(["git", "revert", "--no-commit", commit_sha], cwd=LOCAL_REPO_PATH)
 
     except Exception as e:
         logging.error(f"Revert failed for {commit_sha}")

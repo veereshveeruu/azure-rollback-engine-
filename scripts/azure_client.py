@@ -59,7 +59,7 @@ def get_work_item(work_item_id: str):
 # -----------------------------
 def extract_pr_links(work_item_json):
     """
-    Extract GitHub PR URLs from Azure relations
+    Extract GitHub Pull Request artifact links from Azure DevOps Work Item.
     """
 
     relations = work_item_json.get("relations", [])
@@ -67,30 +67,33 @@ def extract_pr_links(work_item_json):
     pr_links = []
 
     for rel in relations:
-        url = rel.get("url", "")
-
-        # GitHub PRs usually contain /pull/
-        if "github.com" in url and "/pull/" in url:
-            pr_links.append(url)
+        if (
+            rel.get("rel") == "ArtifactLink"
+            and rel.get("attributes", {}).get("name") == "GitHub Pull Request"
+        ):
+            pr_links.append(rel["url"])
 
     return pr_links
 
 
-# -----------------------------
+ # -----------------------------
 # STEP 3: EXTRACT PR NUMBER
 # -----------------------------
 def extract_pr_number(pr_url: str):
     """
-    Convert PR URL → PR number
+    Extract PR number from Azure GitHub artifact URL.
+
     Example:
-    https://github.com/org/repo/pull/123 → 123
+    vstfs:///GitHub/PullRequest/<connection-id>%2f31
+                                          ↓
+                                         31
     """
 
     try:
-        return pr_url.rstrip("/").split("/")[-1]
-    except Exception as e:
+        return pr_url.split("%2f")[-1]
+    except Exception:
         logging.error(f"Invalid PR URL: {pr_url}")
-        raise e
+        raise
 
 
 # -----------------------------
