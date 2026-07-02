@@ -65,9 +65,7 @@ def setup_logger(name: str = "rollback-engine"):
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
 
-    logger.info("====================================")
-    logger.info("Rollback Engine Logger Initialized")
+    
     logger.info(f"Log File: {log_file}")
-    logger.info("====================================")
 
     return logger

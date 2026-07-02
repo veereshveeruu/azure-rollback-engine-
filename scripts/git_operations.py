@@ -28,22 +28,31 @@ if GITHUB_TOKEN and GIT_REPO_URL:
 # SAFE SHELL EXECUTOR
 # -----------------------------
 def run_cmd(cmd: List[str], cwd: str = None):
-    try:
-        result = subprocess.run(
-            cmd,
-            cwd=cwd,
-            text=True,
-            capture_output=True,
-            check=True
+    logging.info(f"Running: {' '.join(cmd)}")
+
+    result = subprocess.run(
+        cmd,
+        cwd=cwd,
+        text=True,
+        capture_output=True
+    )
+
+    logging.info(f"Return Code: {result.returncode}")
+
+    if result.stdout:
+        logging.info(f"STDOUT:\n{result.stdout}")
+
+    if result.stderr:
+        logging.info(f"STDERR:\n{result.stderr}")
+
+    if result.returncode != 0:
+        raise Exception(
+            f"Command failed: {' '.join(cmd)}\n"
+            f"STDOUT:\n{result.stdout}\n"
+            f"STDERR:\n{result.stderr}"
         )
 
-        logging.info(result.stdout)
-        return result.stdout
-
-    except subprocess.CalledProcessError as e:
-        logging.error(e.stderr)
-        raise Exception(f"Command failed: {' '.join(cmd)}\n{e.stderr}")
-
+    return result.stdout
 
 # -----------------------------
 # STEP 1: CLONE REPO
@@ -144,10 +153,8 @@ def revert_commit(commit_sha: str):
     logging.info(f"Reverting commit: {commit_sha}")
 
     try:
-        run_cmd(
-           ["git", "revert", "-m", "1", "--no-edit", commit_sha],
-            cwd=LOCAL_REPO_PATH
-        )
+        # Perform revert without auto commit first (safe check)
+        run_cmd(["git", "revert", "--no-commit", commit_sha], cwd=LOCAL_REPO_PATH)
 
         status = run_cmd(["git", "status", "--porcelain"], cwd=LOCAL_REPO_PATH)
 
