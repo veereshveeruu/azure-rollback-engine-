@@ -16,7 +16,7 @@ print("AZURE_PROJECT:", AZURE_PROJECT)
 print("AZURE_PAT exists:", bool(AZURE_PAT))
 print("AZURE_PAT length:", len(AZURE_PAT) if AZURE_PAT else 0)
 
-BASE_URL = f"{AZURE_ORG}/{AZURE_PROJECT}/_apis/wit/workitems"
+BASE_URL = f"https://dev.azure.com/{AZURE_ORG}/{AZURE_PROJECT}/_apis/wit/workitems"
 
 API_VERSION = "7.0"
 
