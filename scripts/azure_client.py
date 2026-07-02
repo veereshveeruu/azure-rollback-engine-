@@ -11,6 +11,10 @@ from urllib.error import HTTPError, URLError
 AZURE_ORG = os.getenv("AZURE_ORG")
 AZURE_PROJECT = os.getenv("AZURE_PROJECT")
 AZURE_PAT = os.getenv("AZURE_PAT")
+print("AZURE_ORG:", AZURE_ORG)
+print("AZURE_PROJECT:", AZURE_PROJECT)
+print("AZURE_PAT exists:", bool(AZURE_PAT))
+print("AZURE_PAT length:", len(AZURE_PAT) if AZURE_PAT else 0)
 
 BASE_URL = f"{AZURE_ORG}/{AZURE_PROJECT}/_apis/wit/workitems"
 
@@ -35,23 +39,24 @@ def get_headers():
 # STEP 1: FETCH WORK ITEM
 # -----------------------------
 def get_work_item(work_item_id: str):
-    """
-    Fetch full work item including relations
-    """
+
     url = f"{BASE_URL}/{work_item_id}?$expand=relations&api-version={API_VERSION}"
     req = Request(url, headers=get_headers(), method="GET")
 
     try:
         with urlopen(req) as response:
-            body = response.read().decode()
-            return json.loads(body)
+            body = response.read().decode("utf-8-sig")
+
+        print("URL:", url)
+        print("BODY REPR:", repr(body[:500]))
+        return json.loads(body)
+
     except HTTPError as e:
         error_text = e.read().decode()
         logging.error(f"Failed to fetch work item {work_item_id}: {error_text}")
-        raise Exception(f"Azure API error: {error_text}") from e
-    except URLError as e:
-        logging.error(f"Failed to fetch work item {work_item_id}: {e}")
-        raise Exception(f"Azure API network error: {e}") from e
+        raise
+        print("AZURE_PAT exists:", bool(AZURE_PAT))
+        print("AZURE_PAT length:", len(AZURE_PAT) if AZURE_PAT else 0)
 
 
 # -----------------------------
@@ -116,9 +121,16 @@ def get_pr_from_work_item(work_item_id: str):
     pr_numbers = []
 
     for link in pr_links:
-        pr_numbers.append({
-            "url": link,
-            "pr_number": extract_pr_number(link)
-        })
+     pr_numbers.append({
+        "url": link,
+        "pr_number": extract_pr_number(link)
+    })
 
+    # Latest PR first
+    pr_numbers.sort(
+    key=lambda x: int(x["pr_number"]),
+    reverse=True
+)
+
+    logging.info(f"PRs Found: {pr_numbers}")
     return pr_numbers
