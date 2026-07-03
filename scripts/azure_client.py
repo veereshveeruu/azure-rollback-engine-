@@ -11,10 +11,7 @@ from urllib.error import HTTPError, URLError
 AZURE_ORG = os.getenv("AZURE_ORG")
 AZURE_PROJECT = os.getenv("AZURE_PROJECT")
 AZURE_PAT = os.getenv("AZURE_PAT")
-print("AZURE_ORG:", AZURE_ORG)
-print("AZURE_PROJECT:", AZURE_PROJECT)
-print("AZURE_PAT exists:", bool(AZURE_PAT))
-print("AZURE_PAT length:", len(AZURE_PAT) if AZURE_PAT else 0)
+
 
 BASE_URL = f"https://dev.azure.com/{AZURE_ORG}/{AZURE_PROJECT}/_apis/wit/workitems"
 
@@ -45,11 +42,17 @@ def get_work_item(work_item_id: str):
 
     try:
         with urlopen(req) as response:
-            body = response.read().decode("utf-8-sig")
+             body = response.read().decode("utf-8-sig")
+             work_item = json.loads(body)
+        print(json.dumps(work_item["fields"], indent=2))
+        return work_item
+    
+       # with urlopen(req) as response:
+        #    body = response.read().decode("utf-8-sig")
 
-        print("URL:", url)
-        print("BODY REPR:", repr(body[:500]))
-        return json.loads(body)
+        #print("URL:", url)
+        #print("BODY REPR:", repr(body[:500]))
+        #return json.loads(body)
 
     except HTTPError as e:
         error_text = e.read().decode()
@@ -101,6 +104,27 @@ def extract_pr_number(pr_url: str):
         raise
 
 
+
+def get_release_id(work_item):
+    """
+    Extract Release ID from Azure DevOps work item.
+    Supports multiple possible field names.
+    """
+
+    fields = work_item.get("fields", {})
+
+    candidates = [
+        "Custom.ReleaseId",
+        "Custom.Release",
+        "Microsoft.VSTS.Release.ReleaseName"
+    ]
+
+    for field in candidates:
+        if fields.get(field):
+            return fields[field]
+
+    return os.getenv("RELEASE_ID", "DEFAULT_RELEASE")
+
 # -----------------------------
 # STEP 4: MAIN FUNCTION
 # -----------------------------
@@ -111,26 +135,33 @@ def get_pr_from_work_item(work_item_id: str):
     """
 
     work_item = get_work_item(work_item_id)
+    release_id = get_release_id(work_item)
 
     pr_links = extract_pr_links(work_item)
 
     if not pr_links:
         logging.warning(f"No PR linked to Work Item: {work_item_id}")
-        return []
+        return {
+            "release_id": release_id,
+            "prs": []
+        }
 
     pr_numbers = []
 
     for link in pr_links:
-     pr_numbers.append({
-        "url": link,
-        "pr_number": extract_pr_number(link)
-    })
+        pr_numbers.append({
+            "url": link,
+            "pr_number": extract_pr_number(link)
+        })
 
     # Latest PR first
     pr_numbers.sort(
-    key=lambda x: int(x["pr_number"]),
-    reverse=True
-)
+        key=lambda x: int(x["pr_number"]),
+        reverse=True
+    )
 
     logging.info(f"PRs Found: {pr_numbers}")
-    return pr_numbers
+    return {
+        "release_id": release_id,
+        "prs": pr_numbers
+    }

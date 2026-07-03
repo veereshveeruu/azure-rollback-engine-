@@ -12,6 +12,7 @@ sys.path.insert(
 
 import logging
 import json
+from utils.runtime_utils import get_execution_context
 from datetime import datetime
 
 from logger import setup_logger
@@ -21,6 +22,7 @@ from utils.env_loader import load_env
 load_env()
 
 logger = setup_logger("rollback-engine")
+
 
 from azure_client import get_pr_from_work_item
 from github_client import get_pr_commits
@@ -64,16 +66,12 @@ logging.basicConfig(
 # -----------------------------
 def run_pipeline(work_item_id: str):
     try:
-        logging.info("========== PIPELINE STARTED ==========")
-        logging.info(f"Work Item ID: {work_item_id}")
-
-        # STEP 1: Azure → PR
+         # STEP 1: Azure → PR
         pr_data = get_pr_from_work_item(work_item_id)
-
-        if not pr_data:
-            raise Exception("No PR linked to Azure Work Item")
-
-        pr_number = pr_data[0]["pr_number"]
+        pr_list = pr_data["prs"]
+        if not pr_list:
+         raise Exception("No PR linked to Azure Work Item")
+        pr_number = pr_list[0]["pr_number"]
         logging.info(f"PR Found: {pr_number}")
 
         # STEP 2: PR → Commits
@@ -84,10 +82,9 @@ def run_pipeline(work_item_id: str):
 
         logging.info(f"Total commits: {len(commits)}")
         
-        logging.info("========== COMMITS FOUND ==========")
 
         for commit in commits:
-         logging.info(commit)
+            logging.info(commit)
 
         logging.info("===================================")
 
@@ -98,15 +95,23 @@ def run_pipeline(work_item_id: str):
         reset_to_main()
         ensure_clean_state()
 
-       # STEP 4: Create Rollback Branch
-        branch_name = f"rollback/story-{work_item_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        # STEP 4: Create Rollback Branch
+        release_id = pr_data.get("release_id")
+
+        if not release_id:
+           release_id = os.getenv("RELEASE_ID")
+        if not release_id:
+           release_id = "DEFAULT_RELEASE"
+
+        branch_name = f"rollback/release-{release_id}-story-{work_item_id}"
         create_rollback_branch(branch_name)
 
         logging.info(f"DEBUG LOCAL_REPO_PATH = {LOCAL_REPO_PATH}")
         logging.info(f"DEBUG repo exists = {os.path.exists(LOCAL_REPO_PATH)}")
 
-       # STEP 5: SHA BEFORE
+        # STEP 5: SHA BEFORE
         sha_before = generate_repo_sha256(str(LOCAL_REPO_PATH))
+        logging.info(f"Repository SHA BEFORE rollback: {sha_before}")
         save_sha_snapshot("sha256-before.txt", sha_before)
 
 
@@ -126,14 +131,15 @@ def run_pipeline(work_item_id: str):
 
         # STEP 7: COMMIT CHANGES
         try:
-         commit_revert_changes(
-        f"Rollback for Work Item {work_item_id}"
-        )
+            commit_revert_changes(
+                f"Rollback for Work Item {work_item_id}"
+            )
         except Exception as e:
             logging.error(f"Error committing revert changes: {e}")
 
         # STEP 8: SHA GENERATION
         sha_after = generate_repo_sha256(str(LOCAL_REPO_PATH))
+        logging.info(f"Repository SHA AFTER rollback: {sha_after}")
         save_sha_snapshot("sha256-after.txt", sha_after)
 
         logging.info(f"SHA AFTER: {sha_after}")
@@ -157,8 +163,6 @@ def run_pipeline(work_item_id: str):
 
         # STEP 10: PUSH BRANCH
         push_branch(branch_name)
-
-        logging.info("========== PIPELINE COMPLETED ==========")
 
         return {
             "status": status,
@@ -194,51 +198,57 @@ if __name__ == "__main__":
 
     work_item_ids = [item.strip() for item in work_item_ids.split(",")]
 
-    # ✅ INIT AUDIT ONCE
+    # INIT AUDIT ONCE
     audit = AuditReport()
 
     all_results = []
 
     for work_item_id in work_item_ids:
+
+        context = get_execution_context()
+
         logging.info("=" * 80)
-        logging.info(f"WORK ITEM ID : {work_item_id}")
-        logging.info("STATUS       : STARTED")
+        logging.info(f"WORK ITEM ID   : {work_item_id}")
+        logging.info("STATUS         : STARTED")
+        logging.info(f"EXECUTED BY    : {context['executed_by']}")
+        logging.info(f"HOST MACHINE   : {context['host_machine']}")
+        logging.info(f"EXECUTION MODE : {context['execution_mode']}")
         logging.info("=" * 80)
+
+        result = None
 
         try:
             result = run_pipeline(work_item_id)
 
-            # ✅ ADD TO AUDIT
             audit.add_result(result)
-
             all_results.append(result)
 
         except Exception as e:
             logging.exception(f"Work item {work_item_id} failed")
 
-            failed_result = {
+            result = {
                 "work_item": work_item_id,
                 "status": "FAILED",
                 "error": str(e)
             }
 
-            audit.add_result(failed_result)
-            all_results.append(failed_result)
+            audit.add_result(result)
+            all_results.append(result)
+
+        # <-- OUTSIDE try/except
 
         logging.info("=" * 80)
         logging.info(f"WORK ITEM ID : {work_item_id}")
-        logging.info("STATUS       : COMPLETED")
+        logging.info(f"FINAL STATUS : {result['status']}")
+
+        if result["status"] == "FAILED":
+            logging.info(
+                f"ERROR        : {result.get('error', 'N/A')}"
+            )
+
         logging.info("=" * 80)
-
-    # -----------------------------
-    # FINAL AUDIT REPORT
-    # -----------------------------
     audit_file, report = audit.finalize()
-
     print("\n========== FINAL RESULTS ==========")
-    for r in all_results:
-        print(r)
-
     print("\n========== ROLLBACK SUMMARY ==========\n")
 
     print(f"Status      : {result['status']}")
@@ -253,4 +263,13 @@ if __name__ == "__main__":
 
     print("\n======================================")
     print("Rollback completed successfully.")
-    print("======================================")
+print("======================================")
+
+# Print rollback results
+for r in all_results:
+    print(r)
+
+# Print audit report details
+print("\n========== AUDIT REPORT GENERATED ==========")
+print(f"File: {audit_file}")
+print(json.dumps(report, indent=2))

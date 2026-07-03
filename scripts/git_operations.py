@@ -40,10 +40,10 @@ def run_cmd(cmd: List[str], cwd: str = None):
     logging.info(f"Return Code: {result.returncode}")
 
     if result.stdout:
-        logging.info(f"STDOUT:\n{result.stdout}")
+        logging.info(result.stdout.strip())
 
     if result.stderr:
-        logging.info(f"STDERR:\n{result.stderr}")
+        logging.error(result.stderr.strip())
 
     if result.returncode != 0:
         raise Exception(
@@ -52,7 +52,7 @@ def run_cmd(cmd: List[str], cwd: str = None):
             f"STDERR:\n{result.stderr}"
         )
 
-    return result.stdout
+    return result.stdout.strip()
 
 # -----------------------------
 # STEP 1: CLONE REPO
@@ -131,10 +131,13 @@ def create_rollback_branch(branch_name: str):
 # STEP 5: CHECK CLEAN STATE
 # -----------------------------
 def ensure_clean_state():
-    status = run_cmd(["git", "status", "--porcelain"], cwd=LOCAL_REPO_PATH)
+    status = run_cmd(
+    ["git", "status", "--porcelain"],
+    cwd=LOCAL_REPO_PATH
+) or ""
 
     if status.strip():
-        raise Exception("Working directory is not clean. Abort rollback.")
+     raise Exception("Working directory is not clean. Abort rollback.")
 
 
 # -----------------------------
@@ -153,10 +156,17 @@ def revert_commit(commit_sha: str):
     logging.info(f"Reverting commit: {commit_sha}")
 
     try:
+        run_cmd(
+            ["git", "revert", "-m", "1", "--no-edit", commit_sha],
+            cwd=LOCAL_REPO_PATH
+        )
         # Perform revert without auto commit first (safe check)
         run_cmd(["git", "revert", "--no-commit", commit_sha], cwd=LOCAL_REPO_PATH)
 
-        status = run_cmd(["git", "status", "--porcelain"], cwd=LOCAL_REPO_PATH)
+        status = run_cmd(
+            ["git", "status", "--porcelain"],
+            cwd=LOCAL_REPO_PATH
+        ) or ""
 
         if (
             "UU" in status
@@ -170,40 +180,52 @@ def revert_commit(commit_sha: str):
 
             raise Exception(f"MERGE CONFLICT in {commit_sha}")
 
-    except Exception as e:
+    except Exception:
         logging.exception(f"Revert failed: {commit_sha}")
-        raise e
+        raise
 
 
 # -----------------------------
 # STEP 8: REVERT ENGINE
 # -----------------------------
-def revert_commits(commits: List[Dict]):
-    logging.info("Starting revert engine...")
+def revert_commit(commit_sha: str):
+    logging.info(f"Reverting commit: {commit_sha}")
 
-    ordered = sorted(commits, key=lambda x: x["date"], reverse=True)
+    try:
+        run_cmd(
+            ["git", "revert", "-m", "1", "--no-edit", commit_sha],
+            cwd=LOCAL_REPO_PATH
+        )
 
-    reverted_count = 0
+        status = run_cmd(
+            ["git", "status", "--porcelain"],
+            cwd=LOCAL_REPO_PATH
+        ) or ""
 
-    for commit in ordered:
-        sha = commit["sha"]
+        if (
+            "UU" in status
+            or "AA" in status
+            or "DD" in status
+            or "conflict" in status.lower()
+        ):
+            logging.error(f"Merge conflict detected in {commit_sha}")
 
-        try:
-            revert_commit(sha)
-            reverted_count += 1
+            run_cmd(["git", "revert", "--abort"], cwd=LOCAL_REPO_PATH)
 
-        except Exception as e:
-            logging.error(f"Rollback stopped at {sha}")
-            raise Exception(f"Rollback failed at {sha}")
+            raise Exception(f"MERGE CONFLICT in {commit_sha}")
 
-    return reverted_count
-
+    except Exception:
+        logging.exception(f"Revert failed: {commit_sha}")
+        raise
 
 # -----------------------------
 # STEP 9: COMMIT CHANGES (WITH CI SKIP)
 # -----------------------------
 def commit_revert_changes(message: str):
-    status = run_cmd(["git", "status", "--porcelain"], cwd=LOCAL_REPO_PATH)
+    status = run_cmd(
+        ["git", "status", "--porcelain"],
+        cwd=LOCAL_REPO_PATH
+    ) or ""
 
     if not status.strip():
         logging.warning("Nothing to commit after revert.")
@@ -246,12 +268,7 @@ def push_branch(branch_name: str):
     logging.info(f"Pushing branch: {branch_name}")
 
     # DEBUG
-    remote_url = run_cmd(
-        ["git", "remote", "get-url", "origin"],
-        cwd=LOCAL_REPO_PATH
-    )
-
-    logging.info(f"Origin URL = {remote_url}")
+    logging.info("Verified origin remote configuration")
 
     run_cmd([
         "git",
