@@ -49,8 +49,8 @@ def _http_get(url: str, headers: Dict[str, str], params: Dict[str, str] = None):
 def validate_pr(pr_number: str) -> bool:
     url = f"{BASE_URL}/pulls/{pr_number}"
 
-    status, body = _http_get(url, get_headers())
 
+    status, body = _http_get(url, get_headers())
     if status == 404:
         logging.error(f"PR not found: {pr_number}")
         return False

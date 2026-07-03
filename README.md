@@ -394,5 +394,3 @@ Changes Pushed Successfully
 ## Author
 
 **Veeresh**
-
-DevOps / Cloud Engineer

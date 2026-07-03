@@ -28,28 +28,31 @@ if GITHUB_TOKEN and GIT_REPO_URL:
 # SAFE SHELL EXECUTOR
 # -----------------------------
 def run_cmd(cmd: List[str], cwd: str = None):
-    try:
-        result = subprocess.run(
-            cmd,
-            cwd=cwd,
-            text=True,
-            capture_output=True,
-            check=True
+    logging.info(f"Running: {' '.join(cmd)}")
+
+    result = subprocess.run(
+        cmd,
+        cwd=cwd,
+        text=True,
+        capture_output=True
+    )
+
+    logging.info(f"Return Code: {result.returncode}")
+
+    if result.stdout:
+        logging.info(result.stdout.strip())
+
+    if result.stderr:
+        logging.error(result.stderr.strip())
+
+    if result.returncode != 0:
+        raise Exception(
+            f"Command failed: {' '.join(cmd)}\n"
+            f"STDOUT:\n{result.stdout}\n"
+            f"STDERR:\n{result.stderr}"
         )
 
-        output = result.stdout.strip()
-
-        if output:
-            logging.info(output)
-
-        return output
-
-    except subprocess.CalledProcessError as e:
-       if e.stderr:
-        logging.error(e.stderr.strip())
-       raise Exception(
-            f"Command failed: {' '.join(cmd)}\n{e.stderr}"
-        )
+    return result.stdout.strip()
 
 # -----------------------------
 # STEP 1: CLONE REPO
@@ -157,6 +160,8 @@ def revert_commit(commit_sha: str):
             ["git", "revert", "-m", "1", "--no-edit", commit_sha],
             cwd=LOCAL_REPO_PATH
         )
+        # Perform revert without auto commit first (safe check)
+        run_cmd(["git", "revert", "--no-commit", commit_sha], cwd=LOCAL_REPO_PATH)
 
         status = run_cmd(
             ["git", "status", "--porcelain"],
@@ -183,26 +188,35 @@ def revert_commit(commit_sha: str):
 # -----------------------------
 # STEP 8: REVERT ENGINE
 # -----------------------------
-def revert_commits(commits: List[Dict]):
-    logging.info("Starting revert engine...")
+def revert_commit(commit_sha: str):
+    logging.info(f"Reverting commit: {commit_sha}")
 
-    ordered = sorted(commits, key=lambda x: x["date"], reverse=True)
+    try:
+        run_cmd(
+            ["git", "revert", "-m", "1", "--no-edit", commit_sha],
+            cwd=LOCAL_REPO_PATH
+        )
 
-    reverted_count = 0
+        status = run_cmd(
+            ["git", "status", "--porcelain"],
+            cwd=LOCAL_REPO_PATH
+        ) or ""
 
-    for commit in ordered:
-        sha = commit["sha"]
+        if (
+            "UU" in status
+            or "AA" in status
+            or "DD" in status
+            or "conflict" in status.lower()
+        ):
+            logging.error(f"Merge conflict detected in {commit_sha}")
 
-        try:
-            revert_commit(sha)
-            reverted_count += 1
+            run_cmd(["git", "revert", "--abort"], cwd=LOCAL_REPO_PATH)
 
-        except Exception as e:
-            logging.error(f"Rollback stopped at {sha}")
-            raise Exception(f"Rollback failed at {sha}")
+            raise Exception(f"MERGE CONFLICT in {commit_sha}")
 
-    return reverted_count
-
+    except Exception:
+        logging.exception(f"Revert failed: {commit_sha}")
+        raise
 
 # -----------------------------
 # STEP 9: COMMIT CHANGES (WITH CI SKIP)
