@@ -7,6 +7,10 @@ on:
         description: "Comma separated Azure Work Item IDs"
         required: true
         type: string
+      release_id:
+        description: "Azure Release ID"
+        required: true
+        type: string
 
 jobs:
   rollback:

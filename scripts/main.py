@@ -1,14 +1,11 @@
 import os
 import sys
 
-sys.path.insert(
-    0,
-    os.path.dirname(
-        os.path.dirname(
-            os.path.abspath(__file__)
-        )
-    )
-)
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)
+
+sys.path.insert(0, project_root)
+sys.path.insert(0, script_dir)
 
 import logging
 import json
@@ -17,6 +14,7 @@ from datetime import datetime
 from logger import setup_logger
 from utils.audit_report import AuditReport
 from utils.env_loader import load_env
+from utils.branch_utils import generate_branch_name
 
 load_env()
 
@@ -25,12 +23,14 @@ logger = setup_logger("rollback-engine")
 from azure_client import get_pr_from_work_item
 from github_client import get_pr_commits
 import github_client
-
+from utils.release_utils import get_release_id
+from utils.runtime_utils import get_current_user
 
 from git_operations import (
     clone_repo,
     configure_git_user,
     create_rollback_branch,
+    ensure_clean_rollback_branch,
     revert_commits,
     commit_revert_changes,
     push_branch,
@@ -65,6 +65,7 @@ logging.basicConfig(
 def run_pipeline(work_item_id: str):
     try:
         logging.info("========== PIPELINE STARTED ==========")
+        logging.info(f"Executed By : {get_current_user()}")
         logging.info(f"Work Item ID: {work_item_id}")
 
         # STEP 1: Azure → PR
@@ -99,9 +100,13 @@ def run_pipeline(work_item_id: str):
         ensure_clean_state()
 
        # STEP 4: Create Rollback Branch
-        branch_name = f"rollback/story-{work_item_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        release_id = get_release_id()
+        branch_name = generate_branch_name(
+                 release_id,
+                 work_item_id
+        )
+        ensure_clean_rollback_branch(branch_name)
         create_rollback_branch(branch_name)
-
         logging.info(f"DEBUG LOCAL_REPO_PATH = {LOCAL_REPO_PATH}")
         logging.info(f"DEBUG repo exists = {os.path.exists(LOCAL_REPO_PATH)}")
 
@@ -235,13 +240,10 @@ if __name__ == "__main__":
     # -----------------------------
     audit_file, report = audit.finalize()
 
-    print("\n========== FINAL RESULTS ==========")
-    for r in all_results:
-        print(r)
-
     print("\n========== ROLLBACK SUMMARY ==========\n")
 
     print(f"Status      : {result['status']}")
+    print(f"Executed By : {get_current_user()}")
     print(f"Work Item   : {result['work_item']}")
     print(f"PR Number   : {result['pr']}")
     print(f"Branch      : {result['branch']}")

@@ -11,10 +11,7 @@ from urllib.error import HTTPError, URLError
 AZURE_ORG = os.getenv("AZURE_ORG")
 AZURE_PROJECT = os.getenv("AZURE_PROJECT")
 AZURE_PAT = os.getenv("AZURE_PAT")
-print("AZURE_ORG:", AZURE_ORG)
-print("AZURE_PROJECT:", AZURE_PROJECT)
-print("AZURE_PAT exists:", bool(AZURE_PAT))
-print("AZURE_PAT length:", len(AZURE_PAT) if AZURE_PAT else 0)
+
 
 BASE_URL = f"https://dev.azure.com/{AZURE_ORG}/{AZURE_PROJECT}/_apis/wit/workitems"
 
@@ -47,8 +44,6 @@ def get_work_item(work_item_id: str):
         with urlopen(req) as response:
             body = response.read().decode("utf-8-sig")
 
-        print("URL:", url)
-        print("BODY REPR:", repr(body[:500]))
         return json.loads(body)
 
     except HTTPError as e:
@@ -100,6 +95,24 @@ def extract_pr_number(pr_url: str):
         logging.error(f"Invalid PR URL: {pr_url}")
         raise
 
+def set_release_id_env(work_item):
+    fields = work_item.get("fields", {})
+    
+    logging.info(f"Work Item Fields: {json.dumps(fields, indent=2)}")
+    release_id = (
+        fields.get("Custom.ReleaseId")
+        or fields.get("ReleaseId")
+    )
+
+    if release_id:
+        logging.info(f"Release ID retrieved from Work Item: {release_id}")
+    else:
+        release_id = os.getenv("RELEASE_ID", "DEFAULT_RELEASE_ID")
+        logging.info(f"Release ID not found. Using default: {release_id}")
+
+    os.environ["RELEASE_ID"] = str(release_id)
+
+    return release_id
 
 # -----------------------------
 # STEP 4: MAIN FUNCTION
@@ -112,6 +125,9 @@ def get_pr_from_work_item(work_item_id: str):
 
     work_item = get_work_item(work_item_id)
 
+    # Set Release ID environment variable
+    set_release_id_env(work_item)
+
     pr_links = extract_pr_links(work_item)
 
     if not pr_links:
@@ -121,16 +137,16 @@ def get_pr_from_work_item(work_item_id: str):
     pr_numbers = []
 
     for link in pr_links:
-     pr_numbers.append({
-        "url": link,
-        "pr_number": extract_pr_number(link)
-    })
+        pr_numbers.append({
+            "url": link,
+            "pr_number": extract_pr_number(link)
+        })
 
     # Latest PR first
     pr_numbers.sort(
-    key=lambda x: int(x["pr_number"]),
-    reverse=True
-)
+        key=lambda x: int(x["pr_number"]),
+        reverse=True
+    )
 
     logging.info(f"PRs Found: {pr_numbers}")
     return pr_numbers

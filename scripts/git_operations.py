@@ -117,7 +117,48 @@ def reset_to_main():
 
     run_cmd(["git", "checkout", "-B", "main"], cwd=LOCAL_REPO_PATH)
 
+def branch_exists_local(branch_name: str) -> bool:
+    result = run_cmd(
+        ["git", "branch", "--list", branch_name],
+        cwd=LOCAL_REPO_PATH,
+    )
+    return bool(result.strip())
 
+
+def branch_exists_remote(branch_name: str) -> bool:
+    result = run_cmd(
+        ["git", "ls-remote", "--heads", "origin", branch_name],
+        cwd=LOCAL_REPO_PATH,
+    )
+    return bool(result.strip())
+
+
+def delete_local_branch(branch_name: str):
+    logging.info(f"Deleting local branch: {branch_name}")
+
+    run_cmd(
+        ["git", "branch", "-D", branch_name],
+        cwd=LOCAL_REPO_PATH,
+    )
+
+
+def delete_remote_branch(branch_name: str):
+    logging.info(f"Deleting remote branch: {branch_name}")
+
+    run_cmd(
+        ["git", "push", "origin", "--delete", branch_name],
+        cwd=LOCAL_REPO_PATH,
+    )
+
+def ensure_clean_rollback_branch(branch_name: str):
+    run_cmd(["git", "checkout", "main"], cwd=LOCAL_REPO_PATH)
+    if branch_exists_local(branch_name):
+        logging.info(f"Local branch '{branch_name}' exists. Deleting...")
+        delete_local_branch(branch_name)
+
+    if branch_exists_remote(branch_name):
+        logging.info(f"Remote branch '{branch_name}' exists. Deleting...")
+        delete_remote_branch(branch_name)
 # -----------------------------
 # STEP 4: CREATE ROLLBACK BRANCH
 # -----------------------------
