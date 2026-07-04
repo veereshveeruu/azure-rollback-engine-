@@ -107,7 +107,7 @@ def set_release_id_env(work_item):
     if release_id:
         logging.info(f"Release ID retrieved from Work Item: {release_id}")
     else:
-        release_id = os.getenv("RELEASE_ID", "DEFAULT_RELEASE_ID")
+        release_id = os.getenv("RELEASE_ID", "LOCAL")
         logging.info(f"Release ID not found. Using default: {release_id}")
 
     os.environ["RELEASE_ID"] = str(release_id)
