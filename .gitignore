@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 logs/
 repo/
+sha256-after.txt
+sha256-before.txt
