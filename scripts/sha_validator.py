@@ -1,141 +1,148 @@
 import os
 import hashlib
-import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-# -----------------------------
-# CONFIG
-# -----------------------------
-IGNORE_DIRS = {".git", "__pycache__", "logs"}
-IGNORE_FILES = {".DS_Store"}
+# =========================================================
+# CONFIG (Enterprise Standard)
+# =========================================================
+
+IGNORE_DIRS = {
+    ".git",
+    "__pycache__",
+    "logs",
+    ".venv",
+    "node_modules",
+    ".idea"
+}
+
+IGNORE_FILES = {
+    ".DS_Store",
+    "thumbs.db"
+}
 
 
-# -----------------------------
-# STEP 1: HASH SINGLE FILE
-# -----------------------------
+# =========================================================
+# STEP 1: HASH SINGLE FILE (binary-safe)
+# =========================================================
+
 def hash_file(file_path: str) -> str:
-    """
-    Returns SHA256 of a single file
-    """
     sha = hashlib.sha256()
 
-    try:
-        with open(file_path, "rb") as f:
-            while True:
-                chunk = f.read(8192)
-                if not chunk:
-                    break
-                sha.update(chunk)
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            sha.update(chunk)
 
-        return sha.hexdigest()
-
-    except Exception as e:
-        raise Exception(f"Failed to hash file {file_path}: {str(e)}")
+    return sha.hexdigest()
 
 
-# -----------------------------
-# STEP 2: COLLECT ALL FILES
-# -----------------------------
+# =========================================================
+# STEP 2: COLLECT FILES (deterministic)
+# =========================================================
+
 def collect_files(repo_path: str) -> List[str]:
-    """
-    Collect all files excluding ignored folders/files
-    """
+    files = []
 
-    all_files = []
+    for root, dirs, filenames in os.walk(repo_path):
 
-    for root, dirs, files in os.walk(repo_path):
-
-        # Skip ignored directories
+        # remove ignored directories
         dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
 
-        for file in files:
+        for file in filenames:
             if file in IGNORE_FILES:
                 continue
 
             full_path = os.path.join(root, file)
-            all_files.append(full_path)
+            relative_path = os.path.relpath(full_path, repo_path)
 
-    return all_files
+            files.append(relative_path)
 
-
-# -----------------------------
-# STEP 3: BUILD DETERMINISTIC HASH MAP
-# -----------------------------
-def build_file_hash_map(repo_path: str) -> Dict[str, str]:
-    """
-    Create sorted file → hash mapping
-    """
-
-    files = collect_files(repo_path)
-
-    file_hash_map = {}
-
-    for file_path in files:
-        relative_path = os.path.relpath(file_path, repo_path)
-        file_hash_map[relative_path] = hash_file(file_path)
-
-    # Ensure deterministic order
-    return dict(sorted(file_hash_map.items()))
+    # IMPORTANT: deterministic ordering
+    return sorted(files)
 
 
-# -----------------------------
-# STEP 4: GENERATE GLOBAL SHA256
-# -----------------------------
-def generate_repo_sha256(repo_path: str) -> str:
-    """
-    Create a single SHA256 representing entire repo state
-    """
+# =========================================================
+# STEP 3: BUILD REPO SNAPSHOT MAP
+# =========================================================
 
-    file_map = build_file_hash_map(repo_path)
+def build_snapshot(repo_path: str) -> Dict[str, str]:
 
-    combined = hashlib.sha256()
+    file_map = {}
 
-    for file_path, file_hash in file_map.items():
-        combined.update(file_path.encode())
-        combined.update(file_hash.encode())
+    for file in collect_files(repo_path):
+        full_path = os.path.join(repo_path, file)
+        file_map[file] = hash_file(full_path)
 
-    return combined.hexdigest()
+    return file_map
 
+import json
 
-# -----------------------------
-# STEP 5: SAVE SNAPSHOT
-# -----------------------------
-def save_sha_snapshot(file_path: str, sha_value: str):
-    """
-    Save SHA to file (before/after tracking)
-    """
-
-    with open(file_path, "w") as f:
-        f.write(sha_value)
+def save_sha_snapshot(file_path: str, data: dict):
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
 
 
-# -----------------------------
-# STEP 6: LOAD SNAPSHOT
-# -----------------------------
-def load_sha_snapshot(file_path: str) -> str:
-    """
-    Read saved SHA snapshot
-    """
+def load_sha_snapshot(file_path: str):
+    import os
+    import json
 
     if not os.path.exists(file_path):
         return None
 
-    with open(file_path, "r") as f:
-        return f.read().strip()
+    with open(file_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+# =========================================================
+# STEP 4: GENERATE ENTERPRISE SHA (CORE LOGIC)
+# =========================================================
+
+def generate_repo_sha256(repo_path: str) -> str:
+
+    snapshot = build_snapshot(repo_path)
+
+    sha = hashlib.sha256()
+
+    # deterministic iteration
+    for file_path in sorted(snapshot.keys()):
+
+        file_hash = snapshot[file_path]
+
+        # strict structured input
+        sha.update(file_path.encode("utf-8"))
+        sha.update(b":")
+        sha.update(file_hash.encode("utf-8"))
+        sha.update(b";")
+
+    return sha.hexdigest()
 
 
-# -----------------------------
-# STEP 7: COMPARE SHA VALUES
-# -----------------------------
+# =========================================================
+# STEP 5: AUDIT SNAPSHOT (ENTERPRISE EXPLANATION LAYER)
+# =========================================================
+
+def create_audit_snapshot(repo_path: str) -> Dict:
+
+    snapshot = build_snapshot(repo_path)
+    repo_sha = generate_repo_sha256(repo_path)
+
+    return {
+        "repository_sha": repo_sha,
+        "file_count": len(snapshot),
+        "files": snapshot
+    }
+
+
+# =========================================================
+# STEP 6: COMPARE SHAS (CLEAN AUDIT LOG)
+# =========================================================
+
 def compare_sha(sha_before: str, sha_after: str):
-    logging.info("========== SHA VALIDATION ==========")
 
-    logging.info(f"SHA BEFORE : {sha_before}")
-    logging.info(f"SHA AFTER  : {sha_after}")
+    print("\n========== SHA VALIDATION ==========")
+    print(f"SHA BEFORE : {sha_before}")
+    print(f"SHA AFTER  : {sha_after}")
 
     if sha_before == sha_after:
-        logging.info("Repository Integrity : VERIFIED (No changes detected)")
+        print("STATUS: NO CHANGE (Repository is identical)")
     else:
-        logging.info("Repository Integrity : CHANGED (Repository contents updated)")
+        print("STATUS: CHANGED (Repository modified)")
 
-    logging.info("===================================")
+    print("====================================\n")

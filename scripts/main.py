@@ -42,8 +42,8 @@ from git_operations import (
 )
 from sha_validator import (
     generate_repo_sha256,
-    save_sha_snapshot,
-    compare_sha
+    compare_sha,
+    save_sha_snapshot
 )
 
 # -----------------------------
