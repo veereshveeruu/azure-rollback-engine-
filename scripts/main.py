@@ -30,14 +30,14 @@ from git_operations import (
     clone_repo,
     configure_git_user,
     create_rollback_branch,
+    configure_remote_auth,
+    ensure_clean_state,
+    reset_to_main,
     ensure_clean_rollback_branch,
     revert_commits,
     commit_revert_changes,
     push_branch,
-    ensure_clean_state,
     LOCAL_REPO_PATH,
-    configure_remote_auth,
-    reset_to_main,
     run_cmd
 )
 from sha_validator import (
@@ -88,7 +88,7 @@ def run_pipeline(work_item_id: str):
         logging.info("========== COMMITS FOUND ==========")
 
         for commit in commits:
-         logging.info(commit)
+            logging.info(commit)
 
         logging.info("===================================")
 
@@ -99,18 +99,18 @@ def run_pipeline(work_item_id: str):
         reset_to_main()
         ensure_clean_state()
 
-       # STEP 4: Create Rollback Branch
+        # STEP 4: Create Rollback Branch
         release_id = get_release_id()
         branch_name = generate_branch_name(
-                 release_id,
-                 work_item_id
+            release_id,
+            work_item_id
         )
         ensure_clean_rollback_branch(branch_name)
         create_rollback_branch(branch_name)
         logging.info(f"DEBUG LOCAL_REPO_PATH = {LOCAL_REPO_PATH}")
         logging.info(f"DEBUG repo exists = {os.path.exists(LOCAL_REPO_PATH)}")
 
-       # STEP 5: SHA BEFORE
+        # STEP 5: SHA BEFORE
         sha_before = generate_repo_sha256(str(LOCAL_REPO_PATH))
         save_sha_snapshot("sha256-before.txt", sha_before)
 
@@ -123,44 +123,35 @@ def run_pipeline(work_item_id: str):
 
         # STEP 6: Revert Commits
         # Use the revert_commits implementation from git_operations
-        reverted_count = 0
+        
         try:
-            reverted_count = revert_commits(commits)
+            revert_commits(commits)
         except Exception as e:
-            logging.error(f"Error while reverting commits: {e}")
+            logging.exception(f"Error while reverting commits: {e}")
+            status = "FAILED"
+            raise
 
         # STEP 7: COMMIT CHANGES
         try:
-         commit_revert_changes(
-        f"Rollback for Work Item {work_item_id}"
-        )
+            commit_revert_changes(
+                f"Rollback for Work Item {work_item_id}"
+            )
         except Exception as e:
-            logging.error(f"Error committing revert changes: {e}")
+            logging.exception(f"Error committing revert changes: {e}")
+            status = "FAILED"
+            raise
 
         # STEP 8: SHA GENERATION
         sha_after = generate_repo_sha256(str(LOCAL_REPO_PATH))
         save_sha_snapshot("sha256-after.txt", sha_after)
 
         logging.info(f"SHA AFTER: {sha_after}")
-
-        # -------------------------
-        # STEP 10: VALIDATION
-        # -------------------------
-        # -------------------------
-        logging.info("Validating rollback integrity...")
-        # Log SHA values for audit purposes
-        logging.info(f"SHA BEFORE : {sha_before}")
-        logging.info(f"SHA AFTER  : {sha_after}")
-
-        # SHA is captured for auditing only.
-        # Rollback success is determined by successful Git operations
-        # (revert + commit). If we reached this point without exceptions,
-        # rollback is considered successful.
+        compare_sha(sha_before, sha_after)
         logging.info("Rollback completed successfully.")
         logging.info("SHA snapshots captured for audit purposes.")
         status = "SUCCESS"
 
-        # STEP 10: PUSH BRANCH
+        # STEP 11: PUSH BRANCH
         push_branch(branch_name)
 
         logging.info("========== PIPELINE COMPLETED ==========")
@@ -176,14 +167,18 @@ def run_pipeline(work_item_id: str):
         }
 
     except Exception as e:
-        logging.exception("PIPELINE FAILED")
+     logging.exception("========== PIPELINE FAILED ==========")
+     logging.error(f"Work Item ID : {work_item_id}")
+     logging.error(f"Failure Reason : {str(e)}")
+     logging.error("Rollback pipeline terminated.")
+     logging.error("=====================================")
 
-        return {
-            "status": "FAILED",
-            "work_item": work_item_id,
-            "error": str(e),
-            "log_file": LOG_FILE
-        }
+     return {
+        "status": "FAILED",
+        "work_item": work_item_id,
+        "error": str(e),
+        "log_file": LOG_FILE
+     }
 
 
 # -----------------------------
@@ -245,14 +240,23 @@ if __name__ == "__main__":
     print(f"Status      : {result['status']}")
     print(f"Executed By : {get_current_user()}")
     print(f"Work Item   : {result['work_item']}")
+
+if result["status"] == "SUCCESS":
     print(f"PR Number   : {result['pr']}")
     print(f"Branch      : {result['branch']}")
-
     print(f"SHA Before  : {result['sha_before'][:12]}...")
     print(f"SHA After   : {result['sha_after'][:12]}...")
 
-    print(f"Log File    : {result['log_file']}")
+else:
+    print(f"Error       : {result['error']}")
 
+print(f"Log File    : {result['log_file']}")
+
+if result["status"] == "SUCCESS":
     print("\n======================================")
     print("Rollback completed successfully.")
+    print("======================================")
+else:
+    print("\n======================================")
+    print("Rollback failed.")
     print("======================================")

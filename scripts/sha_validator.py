@@ -1,5 +1,6 @@
 import os
 import hashlib
+import logging
 from typing import Dict, List
 
 # -----------------------------
@@ -126,12 +127,15 @@ def load_sha_snapshot(file_path: str) -> str:
 # -----------------------------
 # STEP 7: COMPARE SHA VALUES
 # -----------------------------
-def compare_sha(before: str, after: str) -> bool:
-    """
-    Validate rollback success
-    """
+def compare_sha(sha_before: str, sha_after: str):
+    logging.info("========== SHA VALIDATION ==========")
 
-    if not before or not after:
-        raise Exception("Missing SHA values for comparison")
+    logging.info(f"SHA BEFORE : {sha_before}")
+    logging.info(f"SHA AFTER  : {sha_after}")
 
-    return before == after
+    if sha_before == sha_after:
+        logging.info("Repository Integrity : VERIFIED (No changes detected)")
+    else:
+        logging.info("Repository Integrity : CHANGED (Repository contents updated)")
+
+    logging.info("===================================")

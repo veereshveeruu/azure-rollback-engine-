@@ -36,16 +36,25 @@ def run_cmd(cmd: List[str], cwd: str = None):
         text=True,
         capture_output=True
     )
-
-    logging.info(f"Return Code: {result.returncode}")
-
-    if result.stdout:
-        logging.info(f"STDOUT:\n{result.stdout}")
-
-    if result.stderr:
-        logging.info(f"STDERR:\n{result.stderr}")
+    # Ignore "nothing to abort" scenarios
+    if (
+        result.returncode != 0
+        and cmd[0] == "git"
+        and len(cmd) >= 3
+        and cmd[1] in ["revert", "merge"]
+        and cmd[2] == "--abort"
+    ):
+        return result.stdout
 
     if result.returncode != 0:
+        logging.error(f"Return Code: {result.returncode}")
+
+        if result.stdout:
+            logging.error(f"STDOUT:\n{result.stdout}")
+
+        if result.stderr:
+            logging.error(f"STDERR:\n{result.stderr}")
+
         raise Exception(
             f"Command failed: {' '.join(cmd)}\n"
             f"STDOUT:\n{result.stdout}\n"
@@ -172,10 +181,25 @@ def create_rollback_branch(branch_name: str):
 # STEP 5: CHECK CLEAN STATE
 # -----------------------------
 def ensure_clean_state():
-    status = run_cmd(["git", "status", "--porcelain"], cwd=LOCAL_REPO_PATH)
+    """
+    Clean any leftover Git state before starting rollback.
+    """
 
-    if status.strip():
-        raise Exception("Working directory is not clean. Abort rollback.")
+    logging.info("Ensuring repository is in a clean state...")
+
+    # Abort any unfinished revert
+    run_cmd(["git", "revert", "--abort"], cwd=LOCAL_REPO_PATH)
+
+    # Abort any unfinished merge
+    run_cmd(["git", "merge", "--abort"], cwd=LOCAL_REPO_PATH)
+
+    # Discard tracked file changes
+    run_cmd(["git", "reset", "--hard", "HEAD"], cwd=LOCAL_REPO_PATH)
+
+    # Remove untracked files/folders
+    run_cmd(["git", "clean", "-fd"], cwd=LOCAL_REPO_PATH)
+
+    logging.info("Repository cleaned successfully.")
 
 
 # -----------------------------
@@ -236,7 +260,6 @@ def revert_commits(commits: List[Dict]):
         except Exception as e:
             logging.error(f"Rollback stopped at {sha}")
             raise Exception(f"Rollback failed at {sha}")
-
     return reverted_count
 
 
