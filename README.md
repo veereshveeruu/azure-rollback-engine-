@@ -62,6 +62,10 @@ VAL --> REP
 RB --> AUD
 REP --> AUD
 ```
+---
+## Description
+
+The Rollback Engine automates the rollback of Azure DevOps work items by identifying the associated pull requests and commits, generating reverse commits, and creating a dedicated rollback branch. A pull request is then created for developer review and approval before the rollback is merged into the main branch. The solution also generates audit logs and rollback reports to provide traceability, validation, and clear visibility into the rollback process.
 
 ---
 
@@ -133,92 +137,6 @@ LOG-->>ADO: Rollback Status Report
 
 ---
 
-## Workflow
-
-### Step 1: Fetch User Story
-
-Retrieve User Story details from Azure DevOps.
-
-### Step 2: Discover Linked Pull Requests
-
-Identify all Pull Requests associated with the User Story.
-
-### Step 3: Extract Commit IDs
-
-Collect commit IDs from linked Pull Requests.
-
-### Step 4: Clone Repository
-
-Clone the target GitHub repository locally.
-
-### Step 5: Generate SHA256 Before Rollback
-
-Generate repository fingerprint before making any modifications.
-
-### Step 6: Revert Commits
-
-Perform Git revert operations in reverse chronological order.
-
-### Step 7: Generate SHA256 After Rollback
-
-Generate repository fingerprint after rollback completion.
-
-### Step 8: Validate Repository State
-
-Compare repository hashes and validate rollback execution.
-
-### Step 9: Create Rollback Branch
-
-Create a dedicated rollback branch.
-
-### Step 10: Push Changes
-
-Push rollback changes to GitHub.
-
-### Step 11: Generate Audit Logs
-
-Capture execution details and rollback status.
-
----
-
-## Features
-
-### Azure DevOps Integration
-
-- Fetch User Stories
-- Discover linked Pull Requests
-- Support multiple User Stories
-
-### Commit Discovery
-
-- Extract PR commit history
-- Identify rollback candidates
-
-### Automated Rollback
-
-- Execute Git revert operations
-- Preserve repository history
-- Safe rollback execution
-
-### SHA-256 Validation
-
-- Generate pre-rollback hash
-- Generate post-rollback hash
-- Validate repository integrity
-
-### Branch Management
-
-- Create rollback branch
-- Push rollback commits
-- Maintain isolation from target branch
-
-### Audit Logging
-
-- Detailed execution logs
-- Error tracking
-- Rollback traceability
-
----
 
 ## Error Handling & Edge Cases
 
