@@ -50,7 +50,10 @@ def setup_logger(name: str = "rollback-engine"):
     # -------------------------
     # FILE HANDLER
     # -------------------------
-    file_handler = logging.FileHandler(log_file)
+    file_handler = logging.FileHandler(
+    log_file,
+    encoding="utf-8"
+    )
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(formatter)
 

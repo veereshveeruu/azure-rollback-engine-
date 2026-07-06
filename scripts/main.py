@@ -15,16 +15,18 @@ from logger import setup_logger
 from utils.audit_report import AuditReport
 from utils.env_loader import load_env
 from utils.branch_utils import generate_branch_name
+from utils.github_pr import create_pull_request
 
 load_env()
 
 logger = setup_logger("rollback-engine")
 
 from azure_client import get_pr_from_work_item
-from github_client import get_pr_commits
+from github_client import GITHUB_OWNER, get_pr_commits
 import github_client
 from utils.release_utils import get_release_id
 from utils.runtime_utils import get_current_user
+from utils.log_summary import log_rollback_summary
 
 from git_operations import (
     clone_repo,
@@ -74,8 +76,8 @@ def run_pipeline(work_item_id: str):
         if not pr_data:
             raise Exception("No PR linked to Azure Work Item")
 
+        work_item_url = pr_data[0]["url"]
         pr_number = pr_data[0]["pr_number"]
-        logging.info(f"PR Found: {pr_number}")
 
         # STEP 2: PR → Commits
         commits = get_pr_commits(pr_number)
@@ -153,32 +155,58 @@ def run_pipeline(work_item_id: str):
 
         # STEP 11: PUSH BRANCH
         push_branch(branch_name)
+        # STEP 12: CREATE REVIEW PR
+        pr_response = create_pull_request(
+            branch_name,
+            work_item_id
+        )
 
-        logging.info("========== PIPELINE COMPLETED ==========")
+        rollback_pr_number = pr_response["number"]
+        rollback_pr_url = pr_response["html_url"]
+
+        logger.info(f"Rollback Pull Request Created: {rollback_pr_url}")
+
+        rollback_status = "SUCCESS"
+        merge_status = "PENDING APPROVAL"
+
+        # STEP 13: ROLLBACK SUMMARY
+        log_rollback_summary(
+            logger=logger,
+            work_item_id=work_item_id,
+            work_item_url=work_item_url,
+            pr_number=rollback_pr_number,
+            commits=commits,
+            branch_name=branch_name,
+            rollback_pr_url=rollback_pr_url,
+            rollback_status=rollback_status,
+            merge_status=merge_status
+        )
 
         return {
             "status": status,
             "work_item": work_item_id,
-            "pr": pr_number,
+            "feature_pr": pr_number,
+            "rollback_pr": rollback_pr_number,
             "branch": branch_name,
+            "review_pr": rollback_pr_url,
             "sha_before": sha_before,
             "sha_after": sha_after,
             "log_file": LOG_FILE
         }
 
     except Exception as e:
-     logging.exception("========== PIPELINE FAILED ==========")
-     logging.error(f"Work Item ID : {work_item_id}")
-     logging.error(f"Failure Reason : {str(e)}")
-     logging.error("Rollback pipeline terminated.")
-     logging.error("=====================================")
+        logging.exception("========== PIPELINE FAILED ==========")
+        logging.error(f"Work Item ID : {work_item_id}")
+        logging.error(f"Failure Reason : {str(e)}")
+        logging.error("Rollback pipeline terminated.")
+        logging.error("=====================================")
 
-     return {
-        "status": "FAILED",
-        "work_item": work_item_id,
-        "error": str(e),
-        "log_file": LOG_FILE
-     }
+        return {
+            "status": "FAILED",
+            "work_item": work_item_id,
+            "error": str(e),
+            "log_file": LOG_FILE
+        }
 
 
 # -----------------------------
@@ -227,7 +255,7 @@ if __name__ == "__main__":
 
         logging.info("=" * 80)
         logging.info(f"WORK ITEM ID : {work_item_id}")
-        logging.info("STATUS       : COMPLETED")
+        logging.info(f"STATUS       : {result['status']}")
         logging.info("=" * 80)
 
     # -----------------------------
@@ -241,16 +269,16 @@ if __name__ == "__main__":
     print(f"Executed By : {get_current_user()}")
     print(f"Work Item   : {result['work_item']}")
 
-if result["status"] == "SUCCESS":
-    print(f"PR Number   : {result['pr']}")
-    print(f"Branch      : {result['branch']}")
-    print(f"SHA Before  : {result['sha_before'][:12]}...")
-    print(f"SHA After   : {result['sha_after'][:12]}...")
+    if result["status"] == "SUCCESS":
+     print(f"Feature PR  : {result['feature_pr']}")
+     print(f"Rollback PR : {result['rollback_pr']}")
+     print(f"Branch      : {result['branch']}")
+     print(f"SHA Before  : {result['sha_before'][:12]}...")
+     print(f"SHA After   : {result['sha_after'][:12]}...")
+    else:
+        print(f"Error       : {result['error']}")
 
-else:
-    print(f"Error       : {result['error']}")
-
-print(f"Log File    : {result['log_file']}")
+    print(f"Log File    : {result['log_file']}")
 
 if result["status"] == "SUCCESS":
     print("\n======================================")

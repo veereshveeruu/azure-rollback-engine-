@@ -97,23 +97,18 @@ def extract_pr_number(pr_url: str):
 
 def set_release_id_env(work_item):
     fields = work_item.get("fields", {})
-    
-    logging.info(f"Work Item Fields: {json.dumps(fields, indent=2)}")
+
     release_id = (
         fields.get("Custom.ReleaseId")
         or fields.get("ReleaseId")
     )
 
-    if release_id:
-        logging.info(f"Release ID retrieved from Work Item: {release_id}")
-    else:
+    if not release_id:
         release_id = os.getenv("RELEASE_ID", "LOCAL")
-        logging.info(f"Release ID not found. Using default: {release_id}")
 
     os.environ["RELEASE_ID"] = str(release_id)
 
     return release_id
-
 # -----------------------------
 # STEP 4: MAIN FUNCTION
 # -----------------------------
@@ -148,5 +143,4 @@ def get_pr_from_work_item(work_item_id: str):
         reverse=True
     )
 
-    logging.info(f"PRs Found: {pr_numbers}")
     return pr_numbers
