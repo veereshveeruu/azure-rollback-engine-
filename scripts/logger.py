@@ -2,6 +2,8 @@ import logging
 import os
 from datetime import datetime
 
+from repo.scripts import logger
+
 # -----------------------------
 # LOG DIRECTORY
 # -----------------------------
@@ -66,9 +68,4 @@ def setup_logger(name: str = "rollback-engine"):
 
     # Attach handlers
     logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-
-    
-    logger.info(f"Log File: {log_file}")
-
     return logger

@@ -167,7 +167,7 @@ def run_pipeline(work_item_id: str):
         logger.info(f"Rollback Pull Request Created: {rollback_pr_url}")
 
         rollback_status = "SUCCESS"
-        merge_status = "PENDING APPROVAL"
+        merge_status = "PENDING - Developer Approval"
 
         # STEP 13: ROLLBACK SUMMARY
         log_rollback_summary(
@@ -229,21 +229,14 @@ if __name__ == "__main__":
 
     for work_item_id in work_item_ids:
         logging.info("=" * 80)
-        logging.info(f"WORK ITEM ID : {work_item_id}")
-        logging.info("STATUS       : STARTED")
-        logging.info("=" * 80)
 
         try:
             result = run_pipeline(work_item_id)
 
-            # ✅ ADD TO AUDIT
             audit.add_result(result)
-
             all_results.append(result)
 
         except Exception as e:
-            logging.exception(f"Work item {work_item_id} failed")
-
             failed_result = {
                 "work_item": work_item_id,
                 "status": "FAILED",
@@ -253,10 +246,6 @@ if __name__ == "__main__":
             audit.add_result(failed_result)
             all_results.append(failed_result)
 
-        logging.info("=" * 80)
-        logging.info(f"WORK ITEM ID : {work_item_id}")
-        logging.info(f"STATUS       : {result['status']}")
-        logging.info("=" * 80)
 
     # -----------------------------
     # FINAL AUDIT REPORT
@@ -270,21 +259,21 @@ if __name__ == "__main__":
     print(f"Work Item   : {result['work_item']}")
 
     if result["status"] == "SUCCESS":
-     print(f"Feature PR  : {result['feature_pr']}")
-     print(f"Rollback PR : {result['rollback_pr']}")
-     print(f"Branch      : {result['branch']}")
-     print(f"SHA Before  : {result['sha_before'][:12]}...")
-     print(f"SHA After   : {result['sha_after'][:12]}...")
+        print(f"Feature PR  : {result['feature_pr']}")
+        print(f"Rollback PR : {result['rollback_pr']}")
+        print(f"Branch      : {result['branch']}")
+        print(f"SHA Before  : {result['sha_before'][:12]}...")
+        print(f"SHA After   : {result['sha_after'][:12]}...")
     else:
-        print(f"Error       : {result['error']}")
+        print(f"Reason      : {result['error']}")
 
-    print(f"Log File    : {result['log_file']}")
+    print("\n======================================")
 
-if result["status"] == "SUCCESS":
-    print("\n======================================")
-    print("Rollback completed successfully.")
-    print("======================================")
-else:
-    print("\n======================================")
-    print("Rollback failed.")
-    print("======================================")
+    if result["status"] == "SUCCESS":
+      print("Rollback completed successfully.")
+    else:
+      print("Rollback failed.")
+
+print("======================================")
+
+print(f"\nDetailed Log : {LOG_FILE}")

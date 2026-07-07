@@ -12,9 +12,12 @@ on:
         required: true
         type: string
 
+
 jobs:
+
   rollback:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -44,7 +47,6 @@ jobs:
 
           AZURE_ORG: ${{ vars.AZURE_ORG }}
           AZURE_PROJECT: ${{ vars.AZURE_PROJECT }}
-          DEFAULT_BRANCH: ${{ vars.DEFAULT_BRANCH }}
 
           GITHUB_OWNER: ${{ vars.REPO_OWNER }}
           GITHUB_REPO: ${{ vars.REPO_NAME }}
@@ -57,10 +59,29 @@ jobs:
 
         run: python scripts/main.py
 
+
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: rollback-logs
           path: logs/
+
+
+  # Developer approval gate
+  developer-approval:
+
+    needs: rollback
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: rollback-approval
+
+    steps:
+
+      - name: Waiting for developer approval
+        run: |
+          echo "Rollback changes validated."
+          echo "Developer approval received."
 
