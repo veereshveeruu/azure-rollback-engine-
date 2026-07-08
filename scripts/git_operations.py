@@ -235,9 +235,9 @@ def revert_commits(commits: List[Dict]):
     return reverted_count
 
 
-# -----------------------------
+# -------------------------------
 # STEP 9: COMMIT CHANGES (WITH CI SKIP)
-# -----------------------------
+# -------------------------------
 def commit_revert_changes(message: str):
     status = run_cmd(["git", "status", "--porcelain"], cwd=LOCAL_REPO_PATH)
 

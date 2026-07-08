@@ -4,5 +4,6 @@ __pycache__/
 *.pyc
 logs/
 repo/
-sha256-after.txt
+# SHA validation output
 sha256-before.txt
+sha256-after.tx
