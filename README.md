@@ -38,13 +38,12 @@ subgraph Rollback Automation Framework
     REV[Commit Reversion]
     SHA2[SHA256 After]
     VAL[State Validation]
+    RB[Rollback Branch]
+    RPR[Create Review Pull Request]
+    APP[Developer Approval]
+    MERGE[Merge to Main]
     AUD[Audit Logging]
 end
-
-subgraph Output
-    RB[Rollback Branch]
-    REP[Execution Report]
-    end
 
 ADO --> PR
 PR --> CM
@@ -57,11 +56,16 @@ REV --> SHA2
 SHA2 --> VAL
 
 VAL --> RB
-VAL --> REP
+RB --> RPR
+RPR --> APP
+APP --> MERGE
 
-RB --> AUD
-REP --> AUD
+MERGE --> AUD
 ```
+---
+## Description
+
+The Rollback Engine automates the rollback of Azure DevOps work items by identifying the associated pull requests and commits, generating reverse commits, and creating a dedicated rollback branch. A pull request is then created for developer review and approval before the rollback is merged into the main branch. The solution also generates audit logs and rollback reports to provide traceability, validation, and clear visibility into the rollback process.
 
 ---
 
@@ -84,37 +88,43 @@ end
 box GitHub
 participant GH as Repository
 participant RB as Rollback Branch
+participant DPR as Developer
 end
 
-ADO->>PR: Submit User Story ID
+ADO->>PR: Submit Work Item ID
 
-PR->>ADO: Fetch Linked Pull Requests
+PR->>ADO: Fetch Linked Pull Request
 ADO-->>PR: PR Details
 
-PR->>ADO: Fetch Commit Information
-ADO-->>PR: Commit IDs
+PR->>ADO: Fetch Commit IDs
+ADO-->>PR: Commit List
 
 REV->>GH: Clone Repository
 GH-->>REV: Repository Copy
 
 REV->>SHA: Generate SHA256 Before
-SHA-->>REV: Hash Value
+SHA-->>REV: Hash
 
-REV->>GH: Revert Commits (Latest → Oldest)
-GH-->>REV: Revert Success
+REV->>GH: Revert Commits
+GH-->>REV: Success
 
 REV->>SHA: Generate SHA256 After
-SHA-->>REV: Hash Value
+SHA-->>REV: Hash
 
-REV->>SHA: Compare Before/After State
-SHA-->>REV: Validation Result
+REV->>SHA: Validate Repository
+SHA-->>REV: Validation Passed
 
 REV->>RB: Create Rollback Branch
 
-RB->>GH: Push Reverted Changes
+RB->>GH: Push Rollback Branch
 
-REV->>LOG: Generate Execution Logs
-LOG-->>ADO: Rollback Status Report
+GH->>DPR: Create Review Pull Request
+DPR-->>GH: Review & Approve
+
+GH->>GH: Merge Rollback Branch to Main
+
+REV->>LOG: Generate Audit Log
+LOG-->>ADO: Rollback Summary
 ```
 ---
 
@@ -133,92 +143,6 @@ LOG-->>ADO: Rollback Status Report
 
 ---
 
-## Workflow
-
-### Step 1: Fetch User Story
-
-Retrieve User Story details from Azure DevOps.
-
-### Step 2: Discover Linked Pull Requests
-
-Identify all Pull Requests associated with the User Story.
-
-### Step 3: Extract Commit IDs
-
-Collect commit IDs from linked Pull Requests.
-
-### Step 4: Clone Repository
-
-Clone the target GitHub repository locally.
-
-### Step 5: Generate SHA256 Before Rollback
-
-Generate repository fingerprint before making any modifications.
-
-### Step 6: Revert Commits
-
-Perform Git revert operations in reverse chronological order.
-
-### Step 7: Generate SHA256 After Rollback
-
-Generate repository fingerprint after rollback completion.
-
-### Step 8: Validate Repository State
-
-Compare repository hashes and validate rollback execution.
-
-### Step 9: Create Rollback Branch
-
-Create a dedicated rollback branch.
-
-### Step 10: Push Changes
-
-Push rollback changes to GitHub.
-
-### Step 11: Generate Audit Logs
-
-Capture execution details and rollback status.
-
----
-
-## Features
-
-### Azure DevOps Integration
-
-- Fetch User Stories
-- Discover linked Pull Requests
-- Support multiple User Stories
-
-### Commit Discovery
-
-- Extract PR commit history
-- Identify rollback candidates
-
-### Automated Rollback
-
-- Execute Git revert operations
-- Preserve repository history
-- Safe rollback execution
-
-### SHA-256 Validation
-
-- Generate pre-rollback hash
-- Generate post-rollback hash
-- Validate repository integrity
-
-### Branch Management
-
-- Create rollback branch
-- Push rollback commits
-- Maintain isolation from target branch
-
-### Audit Logging
-
-- Detailed execution logs
-- Error tracking
-- Rollback traceability
-
----
 
 ## Error Handling & Edge Cases
 

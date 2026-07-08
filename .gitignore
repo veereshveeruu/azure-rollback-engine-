@@ -6,4 +6,4 @@ logs/
 repo/
 # SHA validation output
 sha256-before.txt
-sha256-after.txt
+sha256-after.tx

@@ -125,8 +125,6 @@ def get_pr_commits(pr_number: str) -> List[Dict]:
     PR → Ordered commits
     """
 
-    logging.info(f"Fetching commits for PR: {pr_number}")
-
     if not validate_pr(pr_number):
         raise Exception(f"PR {pr_number} not valid or not accessible")
 
@@ -137,7 +135,5 @@ def get_pr_commits(pr_number: str) -> List[Dict]:
         return []
 
     ordered = sort_commits_by_date(commits)
-
-    logging.info(f"Total commits found: {len(ordered)}")
 
     return ordered

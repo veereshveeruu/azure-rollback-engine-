@@ -28,7 +28,6 @@ if GITHUB_TOKEN and GIT_REPO_URL:
 # SAFE SHELL EXECUTOR
 # -----------------------------
 def run_cmd(cmd: List[str], cwd: str = None):
-    logging.info(f"Running: {' '.join(cmd)}")
 
     result = subprocess.run(
         cmd,
@@ -68,10 +67,7 @@ def run_cmd(cmd: List[str], cwd: str = None):
 # -----------------------------
 def clone_repo():
     if os.path.exists(LOCAL_REPO_PATH):
-        logging.info("Repo already exists. Skipping clone.")
         return
-
-    logging.info("Cloning repository...")
 
     run_cmd([
         "git",
@@ -91,7 +87,7 @@ def configure_remote_auth():
         cwd=LOCAL_REPO_PATH
     )
 
-    logging.info("Updated origin remote with authenticated URL")
+    
 # -----------------------------
 # STEP 2: CONFIGURE GIT USER
 # -----------------------------
@@ -141,10 +137,7 @@ def branch_exists_remote(branch_name: str) -> bool:
     )
     return bool(result.strip())
 
-
 def delete_local_branch(branch_name: str):
-    logging.info(f"Deleting local branch: {branch_name}")
-
     run_cmd(
         ["git", "branch", "-D", branch_name],
         cwd=LOCAL_REPO_PATH,
@@ -152,8 +145,6 @@ def delete_local_branch(branch_name: str):
 
 
 def delete_remote_branch(branch_name: str):
-    logging.info(f"Deleting remote branch: {branch_name}")
-
     run_cmd(
         ["git", "push", "origin", "--delete", branch_name],
         cwd=LOCAL_REPO_PATH,
@@ -161,12 +152,11 @@ def delete_remote_branch(branch_name: str):
 
 def ensure_clean_rollback_branch(branch_name: str):
     run_cmd(["git", "checkout", "main"], cwd=LOCAL_REPO_PATH)
+
     if branch_exists_local(branch_name):
-        logging.info(f"Local branch '{branch_name}' exists. Deleting...")
         delete_local_branch(branch_name)
 
     if branch_exists_remote(branch_name):
-        logging.info(f"Remote branch '{branch_name}' exists. Deleting...")
         delete_remote_branch(branch_name)
 # -----------------------------
 # STEP 4: CREATE ROLLBACK BRANCH
@@ -181,33 +171,16 @@ def create_rollback_branch(branch_name: str):
 # STEP 5: CHECK CLEAN STATE
 # -----------------------------
 def ensure_clean_state():
-    """
-    Clean any leftover Git state before starting rollback.
-    """
-
-    logging.info("Ensuring repository is in a clean state...")
-
-    # Abort any unfinished revert
     run_cmd(["git", "revert", "--abort"], cwd=LOCAL_REPO_PATH)
-
-    # Abort any unfinished merge
     run_cmd(["git", "merge", "--abort"], cwd=LOCAL_REPO_PATH)
-
-    # Discard tracked file changes
     run_cmd(["git", "reset", "--hard", "HEAD"], cwd=LOCAL_REPO_PATH)
-
-    # Remove untracked files/folders
     run_cmd(["git", "clean", "-fd"], cwd=LOCAL_REPO_PATH)
-
-    logging.info("Repository cleaned successfully.")
 
 
 # -----------------------------
 # STEP 6: CHECKOUT BRANCH (optional)
 # -----------------------------
 def checkout_branch(branch_name: str):
-    logging.info(f"Checking out branch: {branch_name}")
-
     run_cmd(["git", "checkout", branch_name], cwd=LOCAL_REPO_PATH)
 
 
@@ -215,7 +188,7 @@ def checkout_branch(branch_name: str):
 # STEP 7: REVERT SINGLE COMMIT
 # -----------------------------
 def revert_commit(commit_sha: str):
-    logging.info(f"Reverting commit: {commit_sha}")
+   
 
     try:
         # Perform revert without auto commit first (safe check)
@@ -235,16 +208,15 @@ def revert_commit(commit_sha: str):
 
             raise Exception(f"MERGE CONFLICT in {commit_sha}")
 
-    except Exception as e:
-        logging.exception(f"Revert failed: {commit_sha}")
-        raise e
+    except Exception:
+      raise
 
 
 # -----------------------------
 # STEP 8: REVERT ENGINE
 # -----------------------------
 def revert_commits(commits: List[Dict]):
-    logging.info("Starting revert engine...")
+    
 
     ordered = sorted(commits, key=lambda x: x["date"], reverse=True)
 
@@ -308,14 +280,6 @@ def push_branch(branch_name: str):
     """
 
     logging.info(f"Pushing branch: {branch_name}")
-
-    # DEBUG
-    remote_url = run_cmd(
-        ["git", "remote", "get-url", "origin"],
-        cwd=LOCAL_REPO_PATH
-    )
-
-    logging.info(f"Origin URL = {remote_url}")
 
     run_cmd([
         "git",
