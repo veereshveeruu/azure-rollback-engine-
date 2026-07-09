@@ -133,29 +133,22 @@ def configure_git_user():
 
 def reset_to_branch(branch_name: str):
 
-    run_cmd(
-        ["git", "fetch", "origin"],
-        cwd=LOCAL_REPO_PATH
-    )
+    run_cmd(["git", "fetch", "origin"], cwd=LOCAL_REPO_PATH)
 
-    run_cmd(
-        [
-            "git",
-            "checkout",
-            f"origin/{branch_name}"
-        ],
-        cwd=LOCAL_REPO_PATH
-    )
+    cmd = [
+        "git",
+        "checkout",
+        "-B",
+        branch_name,
+        f"origin/{branch_name}"
+    ]
+    logging.info("Running: %s", " ".join(cmd))
+    run_cmd(cmd, cwd=LOCAL_REPO_PATH)
 
-    run_cmd(
-        [
-            "git",
-            "checkout",
-            "-B",
-            branch_name
-        ],
-        cwd=LOCAL_REPO_PATH
-    )
+    status = run_cmd(
+        ["git", "status"],
+        cwd=LOCAL_REPO_PATH    )
+    logging.info("Git status:\n%s", status)
 
 
 def branch_exists_local(branch_name: str) -> bool:
@@ -216,18 +209,18 @@ def delete_remote_branch(branch_name: str):
     )
 
 
-def ensure_clean_rollback_branch(branch_name: str):
+def ensure_clean_rollback_branch(source_branch, rollback_branch):
 
     run_cmd(
-        ["git", "checkout", "main"],
+        ["git", "checkout", source_branch],
         cwd=LOCAL_REPO_PATH
     )
 
-    if branch_exists_local(branch_name):
-        delete_local_branch(branch_name)
+    if branch_exists_local(rollback_branch):
+        delete_local_branch(rollback_branch)
 
-    if branch_exists_remote(branch_name):
-        delete_remote_branch(branch_name)
+    if branch_exists_remote(rollback_branch):
+        delete_remote_branch(rollback_branch)
 
 
 def create_rollback_branch(branch_name: str):
@@ -279,42 +272,34 @@ def ensure_clean_state():
 # -----------------------------
 
 def revert_commit(commit_sha: str):
-
-    run_cmd(
-        [
-            "git",
-            "revert",
-            "--no-commit",
-            commit_sha
-        ],
-        cwd=LOCAL_REPO_PATH
-    )
-
-    status = run_cmd(
-        [
-            "git",
-            "status",
-            "--porcelain"
-        ],
-        cwd=LOCAL_REPO_PATH
-    )
-
-    if any(
-        conflict in status
-        for conflict in ["UU", "AA", "DD"]
-    ):
+    try:
         run_cmd(
             [
                 "git",
                 "revert",
-                "--abort"
+                "--no-commit",
+                commit_sha
             ],
             cwd=LOCAL_REPO_PATH
         )
-
-        raise Exception(
-            f"Merge conflict detected: {commit_sha}"
+    except Exception:
+        run_cmd(
+            ["git", "revert", "--abort"],
+            cwd=LOCAL_REPO_PATH
         )
+        raise
+
+    status = run_cmd(
+        ["git", "status", "--porcelain"],
+        cwd=LOCAL_REPO_PATH
+    )
+
+    if any(conflict in status for conflict in ["UU", "AA", "DD"]):
+        run_cmd(
+            ["git", "revert", "--abort"],
+            cwd=LOCAL_REPO_PATH
+        )
+        raise Exception(f"Merge conflict detected: {commit_sha}")
 
 
 def revert_commits(commits: List[Dict]):
@@ -366,8 +351,15 @@ def rollback_by_commit_ids(
     rollback_branch: str,
     commit_ids: List[str]
 ):
+    ensure_clean_state()
+
     reset_to_branch(source_branch)
-    ensure_clean_rollback_branch(rollback_branch)
+
+    ensure_clean_rollback_branch(
+        source_branch,
+        rollback_branch
+    )
+
     create_rollback_branch(rollback_branch)
 
     reverted = revert_commit_ids(commit_ids)

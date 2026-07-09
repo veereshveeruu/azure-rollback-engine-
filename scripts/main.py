@@ -55,11 +55,14 @@ from sha_validator import (
 )
 
 
+
+
 # -----------------------------
 # INITIALIZE ENVIRONMENT
 # -----------------------------
 load_env()
-
+GITHUB_OWNER = os.getenv("GITHUB_OWNER", "")
+GITHUB_REPO = os.getenv("GITHUB_REPO", "")
 logger = setup_logger("rollback-engine")
 # -----------------------------
 # LOGGING CONFIG
@@ -120,7 +123,7 @@ def run_pipeline(work_item_id: str):
         # STEP 4: Create Rollback Branch
         branch_name = generate_branch_name(work_item_id)
 
-        ensure_clean_rollback_branch(branch_name)
+        ensure_clean_rollback_branch("main", branch_name)
         create_rollback_branch(branch_name)
         logging.info(f"DEBUG LOCAL_REPO_PATH = {LOCAL_REPO_PATH}")
         logging.info(f"DEBUG repo exists = {os.path.exists(LOCAL_REPO_PATH)}")
@@ -161,7 +164,7 @@ def run_pipeline(work_item_id: str):
         save_sha_snapshot("sha256-after.txt", sha_after)
 
         logging.info(f"SHA AFTER: {sha_after}")
-        compare_sha(sha_before, sha_after)
+        
         logging.info("Rollback completed successfully.")
         logging.info("SHA snapshots captured for audit purposes.")
         status = "SUCCESS"
@@ -198,6 +201,7 @@ def run_pipeline(work_item_id: str):
             rollback_status=rollback_status,
             merge_status=merge_status
         )
+        compare_sha(sha_before, sha_after)
 
         return {
             "status": status,
@@ -242,10 +246,10 @@ def rollback_using_commit_ids(target_branch: str, commit_ids: list[str]):
         clone_repo()
         configure_git_user()
         configure_remote_auth()
+        ensure_clean_state()          # Clean first
         reset_to_branch(target_branch)
-        ensure_clean_state()
 
-        ensure_clean_rollback_branch(branch_name)
+        ensure_clean_rollback_branch(target_branch, branch_name)
         create_rollback_branch(branch_name)
 
         sha_before = generate_repo_sha256(str(LOCAL_REPO_PATH))
@@ -265,8 +269,7 @@ def rollback_using_commit_ids(target_branch: str, commit_ids: list[str]):
         sha_after = generate_repo_sha256(str(LOCAL_REPO_PATH))
         save_sha_snapshot("sha256-after.txt", sha_after)
 
-        logging.info(f"SHA AFTER: {sha_after}")
-        compare_sha(sha_before, sha_after)
+        
         logging.info("Rollback completed successfully.")
         logging.info("SHA snapshots captured for audit purposes.")
 
@@ -287,18 +290,23 @@ def rollback_using_commit_ids(target_branch: str, commit_ids: list[str]):
 
         rollback_status = "SUCCESS"
         merge_status = "PENDING - Developer Approval"
-
+        
+        branch_url = f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/tree/{target_branch}"
+        
         log_rollback_summary(
-            logger=logger,
-            work_item_id="COMMIT_IDS",
-            work_item_url=f"target_branch: {target_branch}",
-            pr_number=rollback_pr_number,
-            commits=commit_ids,
-            branch_name=branch_name,
-            rollback_pr_url=rollback_pr_url,
-            rollback_status=rollback_status,
-            merge_status=merge_status
+           logger=logger,
+           work_item_id="COMMIT_IDS",
+           work_item_url=branch_url,
+           target_branch=target_branch,
+           pr_number=rollback_pr_number,
+           commits=commit_ids,
+           branch_name=branch_name,
+           rollback_pr_url=rollback_pr_url,
+           rollback_status="SUCCESS",
+           merge_status=merge_status
         )
+
+        compare_sha(sha_before, sha_after)
         
         return {
             "status": "SUCCESS",

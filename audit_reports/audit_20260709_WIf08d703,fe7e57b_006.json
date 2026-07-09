@@ -1,0 +1,9 @@
+[
+  {
+    "status": "FAILED",
+    "work_item": "f08d703,fe7e57b",
+    "work_item_title": "Rollback using commit IDs",
+    "error": "Command failed:\ngit fetch origin\nfatal: unable to access 'https://github.com/veereshveeruu/azure-rollback-engine-.git/': Could not resolve host: github.com\n",
+    "log_file": "logs\\rollback_2026-07-09.log"
+  }
+]

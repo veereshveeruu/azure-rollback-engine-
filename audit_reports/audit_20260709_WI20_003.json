@@ -1,0 +1,14 @@
+[
+  {
+    "status": "SUCCESS",
+    "work_item": "20",
+    "work_item_title": "Rollback Testing - SHA Validation",
+    "feature_pr": "35",
+    "rollback_pr": 72,
+    "branch": "feature/workitem-rollback-20",
+    "review_pr": "https://github.com/veereshveeruu/azure-rollback-engine-/pull/72",
+    "sha_before": "514ecaa14cbb6648e4e695e17599a813dcc6d72f374dcdc96eff702d0d62536a",
+    "sha_after": "eed26482e218d4ad896b5b398e872dfbb1a768d1508fe7f97ce40cc3fd2e5737",
+    "log_file": "logs\\rollback_2026-07-09.log"
+  }
+]

@@ -1,0 +1,9 @@
+[
+  {
+    "status": "FAILED",
+    "work_item": "20",
+    "work_item_title": "Rollback Testing - SHA Validation",
+    "error": "PR 35 not valid or not accessible",
+    "log_file": "logs\\rollback_2026-07-09.log"
+  }
+]

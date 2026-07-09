@@ -1,0 +1,9 @@
+[
+  {
+    "status": "FAILED",
+    "work_item": "f08d703,fe7e57b",
+    "work_item_title": "Rollback using commit IDs",
+    "error": "string indices must be integers, not 'str'",
+    "log_file": "logs\\rollback_2026-07-09.log"
+  }
+]
