@@ -1,9 +1,0 @@
-[
-  {
-    "status": "FAILED",
-    "work_item": "f08d703,fe7e57b",
-    "work_item_title": "Rollback using commit IDs",
-    "error": "name 'GITHUB_OWNER' is not defined",
-    "log_file": "logs\\rollback_2026-07-09.log"
-  }
-]

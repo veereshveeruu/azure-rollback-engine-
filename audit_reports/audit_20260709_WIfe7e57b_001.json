@@ -1,9 +1,0 @@
-[
-  {
-    "status": "FAILED",
-    "work_item": "fe7e57b",
-    "work_item_title": "Rollback using commit IDs",
-    "error": "Command failed:\ngit checkout origin/featurebranch\nerror: you need to resolve your current index first\n",
-    "log_file": "logs\\rollback_2026-07-09.log"
-  }
-]
