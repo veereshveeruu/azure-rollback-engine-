@@ -1,4 +1,2 @@
-
-
-def generate_branch_name(release_id: str, work_item_id: str) -> str:
-    return f"rollback/release-{release_id}-story-{work_item_id}"
+def generate_branch_name(work_item_id):
+     return f"feature/workitem-rollback-{work_item_id}"

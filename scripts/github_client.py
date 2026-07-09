@@ -137,3 +137,40 @@ def get_pr_commits(pr_number: str) -> List[Dict]:
     ordered = sort_commits_by_date(commits)
 
     return ordered
+
+def search_pr_by_work_item(work_item_id):
+
+    import requests
+
+    query = f"AB#{work_item_id} repo:{GITHUB_OWNER}/{GITHUB_REPO}"
+
+    url = "https://api.github.com/search/issues"
+
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json"
+    }
+
+    params = {
+        "q": query,
+        "type": "pr"
+    }
+
+    response = requests.get(
+        url,
+        headers=headers,
+        params=params
+    )
+
+    logging.info(
+        f"GitHub Search URL: {response.url}"
+    )
+
+    response.raise_for_status()
+
+    data = response.json()
+
+    if data["total_count"] == 0:
+        return None
+
+    return data["items"][0]["number"]

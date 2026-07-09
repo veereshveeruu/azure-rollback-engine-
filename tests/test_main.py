@@ -1,5 +1,7 @@
 import os
-from unittest.mock import patch
+from pdb import main
+from unittest.mock import patch, MagicMock
+import scripts.main as main
 
 # Required environment variables
 os.environ["WORK_ITEM_IDS"] = "20"
@@ -8,7 +10,6 @@ os.environ["LOCAL_REPO_PATH"] = "/tmp/repo"
 os.environ["GITHUB_TOKEN"] = "dummy-token"
 
 
-from scripts.main import run_pipeline
 
 @patch("scripts.main.run_cmd")
 @patch("scripts.main.create_pull_request")
@@ -18,7 +19,7 @@ from scripts.main import run_pipeline
 @patch("scripts.main.commit_revert_changes")
 @patch("scripts.main.revert_commits")
 @patch("scripts.main.ensure_clean_state")
-@patch("scripts.main.reset_to_main")
+@patch("scripts.main.reset_to_branch")
 @patch("scripts.main.configure_remote_auth")
 @patch("scripts.main.configure_git_user")
 @patch("scripts.main.clone_repo")
@@ -78,7 +79,7 @@ def test_run_pipeline_success(
     }
 
 
-    result = run_pipeline("20")
+    result = main.run_pipeline("20")
 
 
     assert result["status"] == "SUCCESS"
@@ -91,7 +92,104 @@ def test_run_pipeline_failure(mock_get_pr):
 
     mock_get_pr.return_value = []
 
-    result = run_pipeline("20")
+    result = main.run_pipeline("20")
 
     assert result["status"] == "FAILED"
     assert result["work_item"] == "20"
+
+@patch("scripts.main.run_pipeline")
+@patch("scripts.main.AuditReport")
+def test_multiple_work_items(mock_audit, mock_run_pipeline):
+
+    work_item_ids = ["20", "21"]
+
+    mock_run_pipeline.side_effect = [
+        {"status": "SUCCESS", "work_item": work_item_ids[0]},
+        {"status": "SUCCESS", "work_item": work_item_ids[1]},
+    ]
+
+    audit = MagicMock()
+    mock_audit.return_value = audit
+
+    results = []
+
+    for work_item_id in work_item_ids:
+        result = main.run_pipeline(work_item_id)
+        audit.add_result(result)
+        results.append(result)
+
+    assert mock_run_pipeline.call_count == 2
+    assert audit.add_result.call_count == 2
+
+    assert results[0]["work_item"] == "20"
+    assert results[1]["work_item"] == "21"
+
+    assert results[0]["status"] == "SUCCESS"
+    assert results[1]["status"] == "SUCCESS"
+
+
+@patch("scripts.main.run_pipeline")
+@patch("scripts.main.AuditReport")
+def test_multiple_work_items_with_failure(
+    mock_audit,
+    mock_run_pipeline
+):
+
+    work_item_ids = ["20", "21"]
+
+    mock_run_pipeline.side_effect = [
+        {"status": "SUCCESS", "work_item": work_item_ids[0]},
+        {"status": "FAILED", "work_item": work_item_ids[1]},
+    ]
+
+    audit = MagicMock()
+    mock_audit.return_value = audit
+
+    results = []
+
+    for work_item_id in work_item_ids:
+        result = main.run_pipeline(work_item_id)
+        audit.add_result(result)
+        results.append(result)
+
+    assert len(results) == 2
+
+    assert results[0]["status"] == "SUCCESS"
+    assert results[1]["status"] == "FAILED"
+
+    assert audit.add_result.call_count == 2
+
+from unittest.mock import patch
+
+
+@patch("scripts.main.get_pr_from_work_item")
+def test_multiple_prs_for_single_work_item(mock_get_pr):
+
+    # One Work Item linked with multiple PRs
+    mock_get_pr.return_value = [
+        {
+            "url": "https://github.com/test/repo/pull/35",
+            "pr_number": "35"
+        },
+        {
+            "url": "https://github.com/test/repo/pull/40",
+            "pr_number": "40"
+        },
+        {
+            "url": "https://github.com/test/repo/pull/45",
+            "pr_number": "45"
+        }
+    ]
+
+
+    pr_data = mock_get_pr("20")
+
+ 
+    # Verify multiple PRs are returned
+    assert len(pr_data) == 3
+
+    assert pr_data[0]["pr_number"] == "35"
+    assert pr_data[1]["pr_number"] == "40"
+    assert pr_data[2]["pr_number"] == "45"
+
+    assert mock_get_pr.call_count == 1

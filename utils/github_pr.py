@@ -42,7 +42,12 @@ except Exception:
     requests = SimpleNamespace(post=_post)
 
 
-def create_pull_request(branch_name, work_item_id):
+def create_pull_request(
+    branch_name,
+    base_branch,
+    title,
+    body
+):
     github_token = os.getenv("GITHUB_TOKEN")
     github_owner = os.getenv("GITHUB_OWNER")
     github_repo = os.getenv("GITHUB_REPO")
@@ -56,14 +61,11 @@ def create_pull_request(branch_name, work_item_id):
     }
 
     payload = {
-        "title": f"Rollback Work Item {work_item_id}",
-        "head": branch_name,
-        "base": "main",
-        "body": (
-            f"Automated rollback generated for Work Item {work_item_id}.\n\n"
-            "Please review and approve before merging."
-        )
-    }
+    "title": title,
+    "head": branch_name,
+    "base": base_branch,
+    "body": body
+}
 
     response = requests.post(url, headers=headers, json=payload)
 

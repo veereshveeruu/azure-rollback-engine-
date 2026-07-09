@@ -2,8 +2,11 @@ import os
 import base64
 import logging
 import json
+import re
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
+from urllib.parse import unquote
+from github_client import search_pr_by_work_item
 
 # -----------------------------
 # CONFIG
@@ -35,32 +38,75 @@ def get_headers():
 # -----------------------------
 # STEP 1: FETCH WORK ITEM
 # -----------------------------
-def get_work_item(work_item_id: str):
+def get_work_item(work_item_id):
 
-    url = f"{BASE_URL}/{work_item_id}?$expand=relations&api-version={API_VERSION}"
-    req = Request(url, headers=get_headers(), method="GET")
+    url = (
+    f"{BASE_URL}/{work_item_id}"
+    f"?$expand=relations"
+    f"&api-version={API_VERSION}"
+)
 
     try:
-        with urlopen(req) as response:
-            body = response.read().decode("utf-8-sig")
+        req = Request(
+            url,
+            headers=get_headers()
+        )
 
-        return json.loads(body)
+        response = urlopen(req)
+
+        body = response.read().decode("utf-8")
+
+        # Validate JSON response
+        try:
+            return json.loads(body)
+
+        except json.JSONDecodeError:
+            logging.error(
+                "Azure returned invalid JSON response"
+            )
+
+            logging.error(
+                f"Response Body:\n{body[:500]}"
+            )
+
+            raise Exception(
+                "Azure API returned invalid response. "
+                "Check PAT, organization, project configuration."
+            )
+
 
     except HTTPError as e:
-        error_text = e.read().decode()
-        logging.error(f"Failed to fetch work item {work_item_id}: {error_text}")
-        raise
-        print("AZURE_PAT exists:", bool(AZURE_PAT))
-        print("AZURE_PAT length:", len(AZURE_PAT) if AZURE_PAT else 0)
+
+        error_body = e.read().decode("utf-8")
+
+        logging.error(
+            f"Azure API HTTP Error: {e.code}"
+        )
+
+        logging.error(
+            f"Response:\n{error_body[:500]}"
+        )
+
+        raise Exception(
+            f"Azure API failed with status {e.code}"
+        )
+
+
+    except URLError as e:
+
+        logging.error(
+            f"Azure connection error: {str(e)}"
+        )
+
+        raise Exception(
+            "Unable to connect to Azure DevOps"
+        )
 
 
 # -----------------------------
 # STEP 2: EXTRACT PR LINKS
 # -----------------------------
 def extract_pr_links(work_item_json):
-    """
-    Extract GitHub Pull Request artifact links from Azure DevOps Work Item.
-    """
 
     relations = work_item_json.get("relations", [])
 
@@ -74,70 +120,90 @@ def extract_pr_links(work_item_json):
             pr_links.append(rel["url"])
 
     return pr_links
-
-
- # -----------------------------
+# -----------------------------
 # STEP 3: EXTRACT PR NUMBER
 # -----------------------------
-def extract_pr_number(pr_url: str):
-    """
-    Extract PR number from Azure GitHub artifact URL.
 
-    Example:
-    vstfs:///GitHub/PullRequest/<connection-id>%2f31
-                                          ↓
-                                         31
+
+
+def extract_pr_number(pr_link):
+    """
+    Extract PR number from Azure DevOps GitHub PR artifact link.
     """
 
-    try:
-        return pr_url.split("%2f")[-1]
-    except Exception:
-        logging.error(f"Invalid PR URL: {pr_url}")
-        raise
+    decoded = unquote(pr_link)
+
+    return decoded.rstrip("/").split("/")[-1]
+
 
 def set_release_id_env(work_item):
+    """
+    Extract release id from work item.
+    Used for branch naming.
+    """
+
     fields = work_item.get("fields", {})
 
     release_id = (
         fields.get("Custom.ReleaseId")
         or fields.get("ReleaseId")
+        or os.getenv("RELEASE_ID", "LOCAL")
     )
-
-    if not release_id:
-        release_id = os.getenv("RELEASE_ID", "LOCAL")
 
     os.environ["RELEASE_ID"] = str(release_id)
 
     return release_id
 # -----------------------------
 # STEP 4: MAIN FUNCTION
-# -----------------------------
 def get_pr_from_work_item(work_item_id: str):
-    """
-    END-TO-END:
-    Azure Work Item → GitHub PR number(s)
-    """
 
     work_item = get_work_item(work_item_id)
 
-    # Set Release ID environment variable
     set_release_id_env(work_item)
 
     pr_links = extract_pr_links(work_item)
 
     if not pr_links:
-        logging.warning(f"No PR linked to Work Item: {work_item_id}")
+
+        logging.warning(
+            f"No Azure PR relation found for Work Item: {work_item_id}"
+        )
+
+        pr_number = search_pr_by_work_item(work_item_id)
+
+        if pr_number:
+            logging.info(
+                f"GitHub fallback found PR #{pr_number}"
+            )
+
+            return [
+                {
+                    "url": f"github-pr-{pr_number}",
+                    "pr_number": pr_number
+                }
+            ]
+
         return []
 
     pr_numbers = []
 
-    for link in pr_links:
-        pr_numbers.append({
-            "url": link,
-            "pr_number": extract_pr_number(link)
-        })
+    github_owner = os.getenv("GITHUB_OWNER")
+    github_repo = os.getenv("GITHUB_REPO")
 
-    # Latest PR first
+    for link in pr_links:
+        pr_number = extract_pr_number(link)
+
+        pr_numbers.append(
+            {
+                "url": (
+                    f"https://github.com/"
+                    f"{github_owner}/"
+                    f"{github_repo}/pull/{pr_number}"
+                ),
+                "pr_number": pr_number
+            }
+        )
+
     pr_numbers.sort(
         key=lambda x: int(x["pr_number"]),
         reverse=True

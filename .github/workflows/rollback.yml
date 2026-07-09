@@ -1,4 +1,4 @@
-name: Azure Rollback Engine
+name: Code RewindOps
 
 on:
   workflow_dispatch:

@@ -14,11 +14,13 @@ def log_rollback_summary(
     logger.info("=" * 68)
 
     logger.info("Work Item")
-    logger.info(f"├── ID       : {work_item_id}")
-    logger.info(f"├── URL      : {work_item_url}")
-    logger.info(f"├── PR       : {pr_number}")
-    logger.info(f"├── Branch   : {branch_name}")
+    logger.info(f"├── ID               : {work_item_id}")
+    logger.info(f"├── Feature PR       : {work_item_url.split('/')[-1]}")
+    logger.info(f"├── Feature PR URL   : {work_item_url}")
+    logger.info(f"├── Rollback PR      : {pr_number}")
+    logger.info(f"├── Branch           : {branch_name}")
     logger.info("├── Commits")
+    
 
     total = len(commits)
 
