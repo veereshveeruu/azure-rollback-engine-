@@ -4,14 +4,27 @@ name: Code RewindOps
 on:
   workflow_dispatch:
     inputs:
+
       work_item_ids:
         description: "Comma separated Azure Work Item IDs"
-        required: true
+        required: false
         type: string
+        
       release_id:
         description: "Azure Release ID"
-        required: true
+        required: false
         type: string
+      commit_ids:
+        description: "Comma separated Git commit IDs"
+        required: false
+        type: string
+
+      target_branch:
+        description: "Branch to rollback (used for commit_ids mode)"
+        required: false
+        type: string
+
+     
 
 
 jobs:
@@ -43,21 +56,18 @@ jobs:
       - name: Run rollback engine
         env:
           PYTHONPATH: ${{ github.workspace }}
-
           WORK_ITEM_IDS: ${{ github.event.inputs.work_item_ids }}
-
+          RELEASE_ID: ${{ github.event.inputs.release_id }}
+          COMMIT_IDS: ${{ github.event.inputs.commit_ids }}
+          TARGET_BRANCH: ${{ github.event.inputs.target_branch }}
           AZURE_ORG: ${{ vars.AZURE_ORG }}
           AZURE_PROJECT: ${{ vars.AZURE_PROJECT }}
-
           GITHUB_OWNER: ${{ vars.REPO_OWNER }}
           GITHUB_REPO: ${{ vars.REPO_NAME }}
-
           GIT_REPO_URL: ${{ vars.GIT_REPO_URL }}
           LOCAL_REPO_PATH: ${{ vars.LOCAL_REPO_PATH }}
-
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
           AZURE_PAT: ${{ secrets.AZURE_PAT }}
-
         run: python scripts/main.py
 
 
