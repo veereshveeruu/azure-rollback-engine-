@@ -405,17 +405,20 @@ if __name__ == "__main__":
 
     # NEW CODE
     commit_ids = os.getenv("COMMIT_IDS")
+    target_branch = os.getenv("TARGET_BRANCH")
 
     if commit_ids:
-        target_branch = os.getenv("TARGET_BRANCH")
+        # support comma separated list of commit ids
+        commit_list = [c.strip() for c in commit_ids.split(",")] if "," in commit_ids else [commit_ids.strip()]
+        result = rollback_using_commit_ids(commit_list, target_branch)
 
-        commit_ids = [
-            c.strip()
-            for c in commit_ids.split(",")
-            if c.strip()
-        ]
-        result = rollback_using_commit_ids(commit_ids, target_branch)
-        exit(0)
+        audit = AuditReport()
+        audit.add_result(result)
+        audit.finalize()
+
+        # print summary
+
+        sys.exit(0)
 
     # EXISTING CODE
     work_item_ids = os.getenv("WORK_ITEM_IDS")
