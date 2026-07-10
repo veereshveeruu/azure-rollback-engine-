@@ -1,9 +1,25 @@
-.env
-.gitignore/.env
+# Python
 __pycache__/
 *.pyc
+.pytest_cache/
+.venv/
+
+# Environment
+.env
+
+# Logs
 logs/
-repo/
-# SHA validation output
+
+# Generated reports
+audit_reports/
+
+# SHA snapshots
 sha256-before.txt
-sha256-after.tx
+sha256-after.txt
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
