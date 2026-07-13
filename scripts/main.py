@@ -231,6 +231,69 @@ def run_pipeline(work_item_id: str):
             "log_file": get_log_file()
         }
 
+
+def rollback_using_commit_ids(commit_ids, target_branch=None):
+    logging.info("========== COMMIT ID ROLLBACK STARTED ==========")
+    logging.info(f"Commit IDs   : {commit_ids}")
+    logging.info(f"Target Branch: {target_branch}")
+
+    try:
+        clone_repo()
+        configure_git_user()
+        configure_remote_auth()
+
+        if target_branch:
+            run_cmd(["git", "checkout", target_branch], cwd=LOCAL_REPO_PATH)
+        else:
+            reset_to_main()
+
+        ensure_clean_state()
+
+        release_id = get_release_id()
+        branch_name = generate_branch_name(release_id, "commit-rollback")
+        ensure_clean_rollback_branch(branch_name)
+        create_rollback_branch(branch_name)
+
+        sha_before = generate_repo_sha256(str(LOCAL_REPO_PATH))
+        save_sha_snapshot("sha256-before.txt", sha_before)
+
+        revert_commits(commit_ids)
+        commit_revert_changes(f"Rollback commits {', '.join(commit_ids)}")
+
+        sha_after = generate_repo_sha256(str(LOCAL_REPO_PATH))
+        save_sha_snapshot("sha256-after.txt", sha_after)
+
+        compare_sha(sha_before, sha_after)
+        push_branch(branch_name)
+
+        pr_response = create_pull_request(
+        branch_name,
+        ",".join(commit_ids),
+        "commit"
+        )
+
+        logger.info(f"Rollback Pull Request Created: {pr_response.get('html_url')}")
+
+        return {
+            "status": "SUCCESS",
+            "work_item": ",".join(commit_ids),
+            "rollback_pr": pr_response.get("number"),
+            "branch": branch_name,
+            "review_pr": pr_response.get("html_url"),
+            "sha_before": sha_before,
+            "sha_after": sha_after,
+            "log_file": LOG_FILE
+        }
+    except Exception as e:
+        logging.exception("Rollback using commit ids failed")
+        return {
+            "status": "FAILED",
+            "work_item": ",".join(commit_ids),
+            "error": str(e),
+            "log_file": LOG_FILE
+        }
+
+
 # -----------------------------
 # ENTRY POINT (MULTI WORK ITEM)
 # -----------------------------
@@ -339,6 +402,25 @@ def rollback_using_commit_ids(target_branch: str, commit_ids: list[str]):
 
 
 if __name__ == "__main__":
+
+    # NEW CODE
+    commit_ids = os.getenv("COMMIT_IDS")
+    target_branch = os.getenv("TARGET_BRANCH")
+
+    if commit_ids:
+        # support comma separated list of commit ids
+        commit_list = [c.strip() for c in commit_ids.split(",")] if "," in commit_ids else [commit_ids.strip()]
+        result = rollback_using_commit_ids(commit_list, target_branch)
+
+        audit = AuditReport()
+        audit.add_result(result)
+        audit.finalize()
+
+        # print summary
+
+        sys.exit(0)
+
+    # EXISTING CODE
     work_item_ids = os.getenv("WORK_ITEM_IDS")
     commit_ids = os.getenv("COMMIT_IDS")
     target_branch = os.getenv("TARGET_BRANCH")
@@ -358,7 +440,6 @@ if __name__ == "__main__":
 
     # INIT AUDIT ONCE
     audit = AuditReport()
-
     all_results = []
     result = None
 

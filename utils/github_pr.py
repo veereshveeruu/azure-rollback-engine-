@@ -42,16 +42,10 @@ except Exception:
     requests = SimpleNamespace(post=_post)
 
 
-def create_pull_request(
-    branch_name,
-    base_branch,
-    title,
-    body
-):
+def create_pull_request(branch_name, identifier, rollback_type="work_item"):
     github_token = os.getenv("GITHUB_TOKEN")
     github_owner = os.getenv("GITHUB_OWNER")
     github_repo = os.getenv("GITHUB_REPO")
-
 
     url = f"https://api.github.com/repos/{github_owner}/{github_repo}/pulls"
 
@@ -60,12 +54,26 @@ def create_pull_request(
         "Accept": "application/vnd.github+json"
     }
 
+    if rollback_type == "commit":
+        title = "Rollback Commits"
+        body = (
+            f"Automated rollback generated for the following commits:\n\n"
+            f"{identifier}\n\n"
+            "Please review and approve before merging."
+        )
+    else:
+        title = f"Rollback Work Item {identifier}"
+        body = (
+            f"Automated rollback generated for Work Item {identifier}.\n\n"
+            "Please review and approve before merging."
+        )
+
     payload = {
-    "title": title,
-    "head": branch_name,
-    "base": base_branch,
-    "body": body
-}
+        "title": title,
+        "head": branch_name,
+        "base": "main",
+        "body": body
+    }
 
     response = requests.post(url, headers=headers, json=payload)
 
